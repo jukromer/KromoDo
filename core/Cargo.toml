@@ -1,6 +1,13 @@
 [package]
-name = "core"
+name = "kromodo-core"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+
+[lib]
+name = "kromodo_core"
 
 [dependencies]
+rusqlite = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
