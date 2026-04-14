@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.kromodo.app</id>
+  <name>KromoDo</name>
+  <summary>A fast, native To-Do app</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      KromoDo is a high-performance, native task management app
+      built with a shared Rust core and native GTK4/Libadwaita UI.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">dev.kromodo.app.desktop</launchable>
+
+  <url type="homepage">https://github.com/jukromer/KromoDo</url>
+  <url type="bugtracker">https://github.com/jukromer/KromoDo/issues</url>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-04-14">
+      <description>
+        <p>Initial development release.</p>
+      </description>
+    </release>
+  </releases>
+</component>

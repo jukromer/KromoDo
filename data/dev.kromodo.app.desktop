@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=KromoDo
+Comment=A fast, native To-Do app
+Exec=kromodo
+Icon=dev.kromodo.app
+Terminal=false
+Type=Application
+Categories=GTK;Utility;ProjectManagement;
+Keywords=todo;tasks;productivity;
