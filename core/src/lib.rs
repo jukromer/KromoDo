@@ -1,9 +1,9 @@
 mod db;
 mod error;
-mod task;
+mod models;
 
 pub use error::{CoreError, CoreResult};
-pub use task::Task;
+pub use models::task::Task;
 
 use db::Database;
 use std::sync::Mutex;

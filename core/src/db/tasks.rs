@@ -1,30 +1,8 @@
-use rusqlite::Connection;
+use crate::db::Database;
 use crate::error::{CoreError, CoreResult};
-use crate::task::Task;
-
-pub struct Database {
-    conn: Connection,
-}
+use crate::models::task::Task;
 
 impl Database {
-    pub fn open(path: &str) -> CoreResult<Self> {
-        let conn = Connection::open(path)?;
-
-        conn.execute_batch("PRAGMA journal_mode=WAL;")?;
-
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS tasks (
-                id          INTEGER PRIMARY KEY,
-                title       TEXT    NOT NULL,
-                is_done     INTEGER NOT NULL DEFAULT 0,
-                created_at  TEXT    NOT NULL
-            );",
-        
-        )?;
-
-        Ok(Self { conn })
-    }
-
     pub fn add_task(&self, title: &str) -> CoreResult<Task> {
         if title.trim().is_empty() {
             return Err(CoreError::Validation(
