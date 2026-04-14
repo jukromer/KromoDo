@@ -43,7 +43,7 @@ impl Database {
 
         Ok(Task {
             id,
-            title: title.trim.to_string(),
+            title: title.trim().to_string(),
             is_done: false,
             created_at: now,
         })
