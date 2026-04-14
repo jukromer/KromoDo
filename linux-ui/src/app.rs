@@ -31,7 +31,7 @@ impl SimpleComponent for App {
     view! {
         adw::ApplicationWindow {
             set_title: Some("KromoDo"),
-            set_default_width: 480,
+            set_default_width: 1000,
             set_default_height: 640,
 
             adw::ToolbarView {
