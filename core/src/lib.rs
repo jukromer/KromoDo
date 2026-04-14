@@ -1,6 +1,7 @@
 mod db;
 mod error;
 mod models;
+mod migration;
 
 pub use error::{CoreError, CoreResult};
 pub use models::task::Task;
