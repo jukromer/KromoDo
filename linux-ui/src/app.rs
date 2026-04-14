@@ -101,11 +101,11 @@ impl SimpleComponent for App {
     fn update(&mut self, msg: AppMsg, sender: ComponentSender<Self>) {
         match msg {
             AppMsg::AddTask(title) => {
-                let _ = self.state.add_task(&title);
+                let _ = self.state.add_task(&title, "", 0);
                 sender.input(AppMsg::Refresh);
             }
             AppMsg::ToggleTask(id) => {
-                let _ = self.state.toggle_tasks(id);
+                let _ = self.state.toggle_task(id);
                 sender.input(AppMsg::Refresh);
             }
             AppMsg::DeleteTask(id) => {

@@ -19,15 +19,15 @@ impl AppState {
         Ok(Self { db: Mutex::new(db) })
     }
 
-    pub fn add_task(&self, title: &str) -> CoreResult<Task> {
-        self.db.lock().unwrap().add_task(title)
+    pub fn add_task(&self, title: &str, description: &str, priority: i8) -> CoreResult<Task> {
+        self.db.lock().unwrap().add_task(title, description, priority)
     }
 
     pub fn list_tasks(&self) -> CoreResult<Vec<Task>> {
         self.db.lock().unwrap().list_tasks()
     }
 
-    pub fn toggle_tasks(&self, id: i64) -> CoreResult<bool> {
+    pub fn toggle_task(&self, id: i64) -> CoreResult<bool> {
         self.db.lock().unwrap().toggle_task(id)
     }
 
