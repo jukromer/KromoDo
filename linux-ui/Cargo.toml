@@ -1,0 +1,13 @@
+[package]
+name = "kromodo-linux"
+version = "0.1.0"
+edition.workspace = true
+
+[[bin]]
+name = "kromodo"
+path = "src/main.rs"
+
+[dependencies]
+kromodo-core = { path = "../core" }
+relm4 = { version = "0.11", features = ["libadwaita", "gnome_46"] }
+relm4-icons = "0.11"
