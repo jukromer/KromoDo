@@ -2,6 +2,7 @@ use kromodo_core::AppState;
 use relm4::prelude::*;
 use relm4::gtk::prelude::*;
 use relm4::gtk;
+use relm4::gtk::gdk;
 use std::sync::Arc;
 
 use crate::components::task_input::{TaskInput, TaskInputOutput};
@@ -65,6 +66,13 @@ impl SimpleComponent for App {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        let provider = gtk::CssProvider::new();
+        provider.load_from_string(include_str!("../data/styles.css"));
+        gtk::style_context_add_provider_for_display(
+            &gdk::Display::default().expect("Could not get default display"),
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
         let task_input = TaskInput::builder()
             .launch(())
             .forward(sender.input_sender(), |output| match output {

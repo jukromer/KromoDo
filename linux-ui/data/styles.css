@@ -1,0 +1,42 @@
+.task-done .task-title {
+    opacity: 0.5;
+}
+
+.priority-indicator {
+    border-radius: 3px;
+    min-width: 4px;
+    min-height: 24px;
+}
+
+.priority-none {
+    opacity: 0;
+}
+
+.priority-low {
+    background-color: #26a269;
+}
+
+.priority-medium {
+    background-color: #e5a50a;
+}
+
+.priority-high {
+    background-color: #ff7800;
+}
+
+.priority-urgent {
+    background-color: #e01b24;
+}
+
+.task-row {
+    padding: 4px 8px;
+}
+
+.task-row .task-delete {
+    opacity: 0;
+    transition: opacity 200ms ease;
+}
+
+.task-row:hover .task-delete {
+    opacity: 1;
+}

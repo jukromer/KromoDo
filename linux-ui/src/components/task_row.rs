@@ -2,6 +2,7 @@ use kromodo_core::Task;
 use relm4::prelude::*;
 use relm4::gtk::prelude::*;
 use relm4::gtk;
+use relm4::gtk::glib;
 
 pub struct TaskRow {
     task: Task,
@@ -19,6 +20,26 @@ pub enum TaskRowOutput {
     Deleted(i64),
 }
 
+fn priority_css_class(priority: i8) -> &'static str {
+    match priority {
+        1 => "priority-low",
+        2 => "priority-medium",
+        3 => "priority-high",
+        4 => "priority-urgent",
+        _ => "priority-none",
+    }
+}
+
+impl TaskRow {
+    fn formatted_title(&self) -> String {
+        if self.task.is_done {
+            format!("<s>{}</s>", glib::markup_escape_text(&self.task.title))
+        } else {
+            glib::markup_escape_text(&self.task.title).to_string()
+        }
+    }
+}
+
 #[relm4::factory(pub)]
 impl FactoryComponent for TaskRow {
     type Init = Task;
@@ -32,6 +53,19 @@ impl FactoryComponent for TaskRow {
             set_orientation: gtk::Orientation::Horizontal,
             set_spacing: 8,
             set_margin_all: 8,
+            add_css_class: "task-row",
+            #[watch]
+            set_css_classes: if self.task.is_done {
+                &["task-row", "task-done"]
+            } else {
+                &["task-row"]
+            },
+
+            gtk::Box {
+                add_css_class: "priority-indicator",
+                #[watch]
+                add_css_class: priority_css_class(self.task.priority),
+            },
 
             gtk::CheckButton {
                 set_active: self.task.is_done,
@@ -39,16 +73,12 @@ impl FactoryComponent for TaskRow {
             },
 
             gtk::Label {
+                set_use_markup: true,
                 #[watch]
-                set_label: &self.task.title,
+                set_label: &self.formatted_title(),
                 set_hexpand: true,
                 set_halign: gtk::Align::Start,
-                #[watch]
-                set_css_classes: if self.task.is_done {
-                    &["dim-label"]
-                } else {
-                    &[]
-                },
+                add_css_class: "task-title",
             },
 
             gtk::Button {
