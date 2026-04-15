@@ -93,6 +93,44 @@ impl Database {
         Ok(tasks)
     }
 
+    pub fn update_task(&self, task: &mut Task) -> CoreResult<bool> {
+        let title = task.title.trim();
+        if title.is_empty() {
+            return Err(CoreError::Validation("Title can't be empty.".into()));
+        }
+        let description = task.description.trim();
+        let now = Utc::now();
+
+        let affected = self.conn.execute(
+            "UPDATE tasks
+                SET title        = ?1,
+                    description  = ?2,
+                    priority     = ?3,
+                    due_date     = ?4,
+                    has_due_time = ?5,
+                    updated_at   = ?6
+              WHERE id = ?7",
+            rusqlite::params![
+                title,
+                description,
+                task.priority,
+                task.due_date,
+                task.has_due_time,
+                now,
+                task.id,
+            ],
+        )?;
+
+        if affected > 0 {
+            task.title = title.to_string();
+            task.description = description.to_string();
+            task.updated_at = now;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
     pub fn toggle_task(&self, id: i64) -> CoreResult<bool> {
         let now = Utc::now();
         let affected = self.conn.execute(

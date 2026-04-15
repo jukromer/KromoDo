@@ -53,6 +53,10 @@ impl AppState {
         self.db.lock().unwrap().list_completed_tasks()
     }
 
+    pub fn update_task(&self, task: &mut Task) -> CoreResult<bool> {
+        self.db.lock().unwrap().update_task(task)
+    }
+
     pub fn toggle_task(&self, id: i64) -> CoreResult<bool> {
         self.db.lock().unwrap().toggle_task(id)
     }
