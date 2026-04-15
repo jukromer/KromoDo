@@ -37,7 +37,7 @@ impl SimpleComponent for App {
     view! {
         #[root]
         adw::ApplicationWindow {
-            set_title: Some("KromoDo"),
+            set_title: Some(""),
             set_default_width: 1000,
             set_default_height: 640,
 
