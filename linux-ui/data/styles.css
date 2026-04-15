@@ -69,22 +69,38 @@ window.kromodo-dark headerbar {
     opacity: 1;
 }
 
-.sidebar-button {
+.sidebar-card {
     padding: 10px 12px;
-    border-radius: 8px;
-}
-
-.sidebar-button:hover {
+    border-radius: 10px;
     background-color: alpha(currentColor, 0.06);
+    border: 1px solid transparent;
+    transition: background-color 150ms ease, border-color 150ms ease;
 }
 
-.sidebar-button-active {
-    background-color: alpha(@accent_bg_color, 0.18);
-    color: @accent_fg_color;
+.sidebar-card:hover {
+    background-color: alpha(currentColor, 0.10);
 }
 
-.sidebar-button-active:hover {
-    background-color: alpha(@accent_bg_color, 0.24);
+.sidebar-card .sidebar-card-icon {
+    color: @accent_bg_color;
+}
+
+.sidebar-card .sidebar-card-label {
+    font-weight: 500;
+    font-size: 0.95em;
+}
+
+.sidebar-card-active {
+    background-color: alpha(@accent_bg_color, 0.10);
+    border-color: alpha(@accent_bg_color, 0.45);
+}
+
+.sidebar-card-active:hover {
+    background-color: alpha(@accent_bg_color, 0.15);
+}
+
+.sidebar-card-active .sidebar-card-label {
+    color: @accent_bg_color;
 }
 
 .task-list {
