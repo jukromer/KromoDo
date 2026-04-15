@@ -5,14 +5,14 @@ use relm4::prelude::*;
 use relm4::{adw, gtk};
 use std::sync::Arc;
 
+use crate::components::quick_add::{QuickAdd, QuickAddInput, QuickAddOutput};
 use crate::components::sidebar::{Sidebar, SidebarOutput, SidebarSelection};
-use crate::components::task_input::{TaskInput, TaskInputOutput};
 use crate::components::task_row::{TaskRow, TaskRowOutput};
 
 pub struct App {
     state: Arc<AppState>,
     tasks: FactoryVecDeque<TaskRow>,
-    task_input: Controller<TaskInput>,
+    quick_add: Controller<QuickAdd>,
     sidebar: Controller<Sidebar>,
     selection: SidebarSelection,
     show_sidebar: bool,
@@ -20,7 +20,8 @@ pub struct App {
 
 #[derive(Debug)]
 pub enum AppMsg {
-    AddTask(String),
+    OpenQuickAdd,
+    AddTask { title: String, description: String },
     ToggleTask(i64),
     Refresh,
     SelectView(SidebarSelection),
@@ -61,49 +62,79 @@ impl SimpleComponent for App {
                     },
 
                     #[wrap(Some)]
-                    set_content = &gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_margin_start: 24,
-                        set_margin_end: 24,
-                        set_margin_top: 16,
-                        set_margin_bottom: 16,
-                        set_spacing: 12,
-
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Horizontal,
+                    set_content = &gtk::Overlay {
+                        #[wrap(Some)]
+                        set_child = &gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_margin_start: 24,
+                            set_margin_end: 24,
+                            set_margin_top: 16,
+                            set_margin_bottom: 16,
                             set_spacing: 12,
-                            set_margin_bottom: 8,
 
-                            gtk::Image {
-                                set_pixel_size: 28,
-                                #[watch]
-                                set_icon_name: Some(model.selection.icon()),
+                            gtk::Box {
+                                set_orientation: gtk::Orientation::Horizontal,
+                                set_spacing: 12,
+                                set_margin_bottom: 4,
+
+                                gtk::Image {
+                                    set_pixel_size: 28,
+                                    #[watch]
+                                    set_icon_name: Some(model.selection.icon()),
+                                },
+                                gtk::Label {
+                                    add_css_class: "title-1",
+                                    set_halign: gtk::Align::Start,
+                                    #[watch]
+                                    set_label: model.selection.title(),
+                                },
                             },
-                            gtk::Label {
-                                add_css_class: "title-1",
+
+                            gtk::Button {
+                                set_css_classes: &["flat", "task-add-link"],
                                 set_halign: gtk::Align::Start,
-                                #[watch]
-                                set_label: model.selection.title(),
+                                connect_clicked => AppMsg::OpenQuickAdd,
+
+                                #[wrap(Some)]
+                                set_child = &gtk::Box {
+                                    set_orientation: gtk::Orientation::Horizontal,
+                                    set_spacing: 8,
+                                    gtk::Image {
+                                        set_icon_name: Some("list-add-symbolic"),
+                                        set_pixel_size: 14,
+                                    },
+                                    gtk::Label {
+                                        set_label: "Add tasks",
+                                    },
+                                },
+                            },
+
+                            gtk::ScrolledWindow {
+                                set_vexpand: true,
+                                set_hscrollbar_policy: gtk::PolicyType::Never,
+
+                                #[wrap(Some)]
+                                set_child = &gtk::Box {
+                                    set_orientation: gtk::Orientation::Vertical,
+
+                                    #[local_ref]
+                                    task_list_box -> gtk::ListBox {
+                                        add_css_class: "task-list",
+                                        set_selection_mode: gtk::SelectionMode::None,
+                                    },
+                                },
                             },
                         },
 
-                        gtk::ScrolledWindow {
-                            set_vexpand: true,
-                            set_hscrollbar_policy: gtk::PolicyType::Never,
-
-                            #[wrap(Some)]
-                            set_child = &gtk::Box {
-                                set_orientation: gtk::Orientation::Vertical,
-                                set_spacing: 12,
-
-                                #[local_ref]
-                                task_list_box -> gtk::ListBox {
-                                    add_css_class: "task-list",
-                                    set_selection_mode: gtk::SelectionMode::None,
-                                },
-
-                                append = model.task_input.widget(),
-                            },
+                        add_overlay = &gtk::Button {
+                            set_icon_name: "list-add-symbolic",
+                            set_css_classes: &["suggested-action", "circular", "fab"],
+                            set_halign: gtk::Align::End,
+                            set_valign: gtk::Align::End,
+                            set_margin_end: 24,
+                            set_margin_bottom: 24,
+                            set_tooltip_text: Some("Add task"),
+                            connect_clicked => AppMsg::OpenQuickAdd,
                         },
                     },
                 },
@@ -129,10 +160,12 @@ impl SimpleComponent for App {
             });
         }
 
-        let task_input = TaskInput::builder().launch(()).forward(
+        let quick_add = QuickAdd::builder().launch(root.clone()).forward(
             sender.input_sender(),
             |output| match output {
-                TaskInputOutput::AddTask(title) => AppMsg::AddTask(title),
+                QuickAddOutput::AddTask { title, description } => {
+                    AppMsg::AddTask { title, description }
+                }
             },
         );
 
@@ -162,7 +195,7 @@ impl SimpleComponent for App {
         let model = App {
             state,
             tasks,
-            task_input,
+            quick_add,
             sidebar,
             selection: SidebarSelection::Inbox,
             show_sidebar: true,
@@ -176,8 +209,11 @@ impl SimpleComponent for App {
 
     fn update(&mut self, msg: AppMsg, sender: ComponentSender<Self>) {
         match msg {
-            AppMsg::AddTask(title) => {
-                if let Err(err) = self.state.add_task(&title, "", 0, None, false) {
+            AppMsg::OpenQuickAdd => {
+                self.quick_add.sender().send(QuickAddInput::Present).ok();
+            }
+            AppMsg::AddTask { title, description } => {
+                if let Err(err) = self.state.add_task(&title, &description, 0, None, false) {
                     eprintln!("kromodo: add_task failed: {err}");
                 }
                 sender.input(AppMsg::Refresh);
