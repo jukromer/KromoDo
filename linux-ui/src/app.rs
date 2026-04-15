@@ -179,7 +179,7 @@ impl SimpleComponent for App {
     fn update(&mut self, msg: AppMsg, sender: ComponentSender<Self>) {
         match msg {
             AppMsg::AddTask(title) => {
-                if let Err(err) = self.state.add_task(&title, "", 0) {
+                if let Err(err) = self.state.add_task(&title, "", 0, None, false) {
                     eprintln!("kromodo: add_task failed: {err}");
                 }
                 sender.input(AppMsg::Refresh);
