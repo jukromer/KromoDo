@@ -1,3 +1,31 @@
+/* Dark-mode Planify-inspired background override.
+   Scoped to .kromodo-dark, which is toggled on the window
+   by AdwStyleManager::is_dark notifications. */
+window.kromodo-dark,
+window.kromodo-dark .background {
+    background-color: #151515;
+}
+
+window.kromodo-dark .kromodo-sidebar,
+window.kromodo-dark .kromodo-sidebar > box,
+window.kromodo-dark .kromodo-sidebar headerbar {
+    background-color: #1e1e1e;
+    background-image: none;
+}
+
+window.kromodo-dark .kromodo-content,
+window.kromodo-dark .kromodo-content > box,
+window.kromodo-dark .kromodo-content headerbar {
+    background-color: #151515;
+    background-image: none;
+}
+
+window.kromodo-dark headerbar {
+    box-shadow: none;
+    border: none;
+}
+
+/* Shared styles (both light and dark) */
 .task-done .task-title {
     opacity: 0.5;
 }
@@ -46,8 +74,17 @@
     border-radius: 8px;
 }
 
+.sidebar-button:hover {
+    background-color: alpha(currentColor, 0.06);
+}
+
 .sidebar-button-active {
-    background-color: alpha(currentColor, 0.08);
+    background-color: alpha(@accent_bg_color, 0.18);
+    color: @accent_fg_color;
+}
+
+.sidebar-button-active:hover {
+    background-color: alpha(@accent_bg_color, 0.24);
 }
 
 .task-list {
@@ -58,6 +95,7 @@
 .task-list row {
     border-radius: 8px;
     margin-bottom: 2px;
+    background-color: transparent;
 }
 
 .task-list row:hover {

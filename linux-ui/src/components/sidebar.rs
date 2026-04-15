@@ -48,6 +48,7 @@ impl SimpleComponent for Sidebar {
     view! {
         #[root]
         adw::ToolbarView {
+            add_css_class: "kromodo-sidebar",
             add_top_bar = &adw::HeaderBar {
                 add_css_class: "flat",
                 set_show_end_title_buttons: false,

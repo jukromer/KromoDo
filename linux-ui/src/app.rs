@@ -51,6 +51,7 @@ impl SimpleComponent for App {
 
                 #[wrap(Some)]
                 set_content = &adw::ToolbarView {
+                    add_css_class: "kromodo-content",
                     add_top_bar = &adw::HeaderBar {
                         pack_start = &gtk::ToggleButton {
                             set_icon_name: "sidebar-show-symbolic",
@@ -117,6 +118,17 @@ impl SimpleComponent for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         load_css();
+
+        let style_manager = adw::StyleManager::default();
+        apply_dark_class(&root, style_manager.is_dark());
+        {
+            let root_weak = root.downgrade();
+            style_manager.connect_dark_notify(move |mgr| {
+                if let Some(window) = root_weak.upgrade() {
+                    apply_dark_class(&window, mgr.is_dark());
+                }
+            });
+        }
 
         let task_input = TaskInput::builder().launch(()).forward(
             sender.input_sender(),
@@ -201,6 +213,14 @@ impl SimpleComponent for App {
                 self.show_sidebar = !self.show_sidebar;
             }
         }
+    }
+}
+
+fn apply_dark_class(window: &adw::ApplicationWindow, is_dark: bool) {
+    if is_dark {
+        window.add_css_class("kromodo-dark");
+    } else {
+        window.remove_css_class("kromodo-dark");
     }
 }
 
