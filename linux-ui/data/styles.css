@@ -40,3 +40,26 @@
 .task-row:hover .task-delete {
     opacity: 1;
 }
+
+.sidebar-button {
+    padding: 10px 12px;
+    border-radius: 8px;
+}
+
+.sidebar-button-active {
+    background-color: alpha(currentColor, 0.08);
+}
+
+.task-list {
+    background: transparent;
+    border-radius: 0;
+}
+
+.task-list row {
+    border-radius: 8px;
+    margin-bottom: 2px;
+}
+
+.task-list row:hover {
+    background-color: alpha(currentColor, 0.05);
+}

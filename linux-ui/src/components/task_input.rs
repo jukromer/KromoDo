@@ -44,7 +44,7 @@ impl SimpleComponent for TaskInput {
     fn init(
         _init: Self::Init,
         root: Self::Root,
-        sender: ComponentSender<Self>,
+        _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let model = TaskInput {
             buffer: gtk::EntryBuffer::new(None::<&str>),

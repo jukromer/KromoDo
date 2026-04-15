@@ -82,7 +82,7 @@ impl FactoryComponent for TaskRow {
             },
 
             gtk::Button {
-                set_icon_name: "edit-delete-symbolic",
+                set_icon_name: "user-trash-symbolic",
                 set_css_classes: &["flat", "task-delete"],
                 connect_clicked => TaskRowInput::Delete,
             },
