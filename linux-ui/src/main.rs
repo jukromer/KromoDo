@@ -3,8 +3,8 @@ mod app;
 mod components;
 use app::App;
 use kromodo_core::AppState;
-use relm4::prelude::*;
 use relm4::gtk;
+use relm4::prelude::*;
 use std::sync::Arc;
 
 fn db_path() -> String {
@@ -21,5 +21,6 @@ fn main() {
     );
 
     let app = RelmApp::new("dev.kromodo.app");
+    gtk::Window::set_default_icon_name("dev.kromodo.app");
     app.run::<App>(state);
 }
