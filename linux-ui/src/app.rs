@@ -22,7 +22,6 @@ pub struct App {
 pub enum AppMsg {
     AddTask(String),
     ToggleTask(i64),
-    DeleteTask(i64),
     Refresh,
     SelectView(SidebarSelection),
     ToggleSidebar,
@@ -148,7 +147,6 @@ impl SimpleComponent for App {
             .launch(gtk::ListBox::default())
             .forward(sender.input_sender(), |output| match output {
                 TaskRowOutput::Toggled(id) => AppMsg::ToggleTask(id),
-                TaskRowOutput::Deleted(id) => AppMsg::DeleteTask(id),
             });
 
         match state.list_tasks() {
@@ -187,12 +185,6 @@ impl SimpleComponent for App {
             AppMsg::ToggleTask(id) => {
                 if let Err(err) = self.state.toggle_task(id) {
                     eprintln!("kromodo: toggle_task failed: {err}");
-                }
-                sender.input(AppMsg::Refresh);
-            }
-            AppMsg::DeleteTask(id) => {
-                if let Err(err) = self.state.delete_task(id) {
-                    eprintln!("kromodo: delete_task failed: {err}");
                 }
                 sender.input(AppMsg::Refresh);
             }

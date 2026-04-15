@@ -1,8 +1,8 @@
 use kromodo_core::Task;
-use relm4::prelude::*;
-use relm4::gtk::prelude::*;
 use relm4::gtk;
 use relm4::gtk::glib;
+use relm4::gtk::prelude::*;
+use relm4::prelude::*;
 
 pub struct TaskRow {
     task: Task,
@@ -11,16 +11,14 @@ pub struct TaskRow {
 #[derive(Debug)]
 pub enum TaskRowInput {
     Toggle,
-    Delete,
 }
 
 #[derive(Debug)]
 pub enum TaskRowOutput {
     Toggled(i64),
-    Deleted(i64),
 }
 
-fn priority_css_class(priority: i8) -> &'static str {
+fn priority_class(priority: i8) -> &'static str {
     match priority {
         1 => "priority-low",
         2 => "priority-medium",
@@ -28,6 +26,14 @@ fn priority_css_class(priority: i8) -> &'static str {
         4 => "priority-urgent",
         _ => "priority-none",
     }
+}
+
+fn row_classes(task: &Task) -> Vec<&'static str> {
+    let mut classes = vec!["task-row", priority_class(task.priority)];
+    if task.is_done {
+        classes.push("task-done");
+    }
+    classes
 }
 
 impl TaskRow {
@@ -51,45 +57,34 @@ impl FactoryComponent for TaskRow {
     view! {
         gtk::Box {
             set_orientation: gtk::Orientation::Horizontal,
-            set_spacing: 8,
-            set_margin_all: 8,
-            add_css_class: "task-row",
+            set_spacing: 10,
             #[watch]
-            set_css_classes: if self.task.is_done {
-                &["task-row", "task-done"]
-            } else {
-                &["task-row"]
-            },
-
-            gtk::Box {
-                add_css_class: "priority-indicator",
-                #[watch]
-                add_css_class: priority_css_class(self.task.priority),
-            },
+            set_css_classes: &row_classes(&self.task),
 
             gtk::CheckButton {
+                set_valign: gtk::Align::Center,
                 set_active: self.task.is_done,
                 connect_toggled => TaskRowInput::Toggle,
             },
 
             gtk::Label {
+                set_valign: gtk::Align::Center,
                 set_use_markup: true,
                 #[watch]
                 set_label: &self.formatted_title(),
                 set_hexpand: true,
                 set_halign: gtk::Align::Start,
+                set_ellipsize: gtk::pango::EllipsizeMode::End,
                 add_css_class: "task-title",
-            },
-
-            gtk::Button {
-                set_icon_name: "user-trash-symbolic",
-                set_css_classes: &["flat", "task-delete"],
-                connect_clicked => TaskRowInput::Delete,
             },
         }
     }
 
-    fn init_model(task: Self::Init, _index: &DynamicIndex, _sender: FactorySender<Self>) -> Self {
+    fn init_model(
+        task: Self::Init,
+        _index: &DynamicIndex,
+        _sender: FactorySender<Self>,
+    ) -> Self {
         Self { task }
     }
 
@@ -97,9 +92,6 @@ impl FactoryComponent for TaskRow {
         match msg {
             TaskRowInput::Toggle => {
                 sender.output(TaskRowOutput::Toggled(self.task.id)).ok();
-            }
-            TaskRowInput::Delete => {
-                sender.output(TaskRowOutput::Deleted(self.task.id)).ok();
             }
         }
     }

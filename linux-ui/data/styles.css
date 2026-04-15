@@ -27,46 +27,77 @@ window.kromodo-dark headerbar {
 
 /* Shared styles (both light and dark) */
 .task-done .task-title {
-    opacity: 0.5;
+    opacity: 0.4;
 }
 
-.priority-indicator {
-    border-radius: 3px;
-    min-width: 4px;
-    min-height: 24px;
-}
-
-.priority-none {
-    opacity: 0;
-}
-
-.priority-low {
-    background-color: #26a269;
-}
-
-.priority-medium {
-    background-color: #e5a50a;
-}
-
-.priority-high {
-    background-color: #ff7800;
-}
-
-.priority-urgent {
-    background-color: #e01b24;
+.task-title {
+    font-size: 0.92em;
+    font-weight: 400;
 }
 
 .task-row {
-    padding: 4px 8px;
+    padding: 1px 4px;
+    min-height: 28px;
 }
 
-.task-row .task-delete {
-    opacity: 0;
-    transition: opacity 200ms ease;
+.task-row checkbutton {
+    min-width: 0;
+    min-height: 0;
+    padding: 1px;
 }
 
-.task-row:hover .task-delete {
-    opacity: 1;
+.task-row checkbutton check {
+    min-width: 14px;
+    min-height: 14px;
+    padding: 0;
+    border-radius: 4px;
+    border: 1px solid alpha(currentColor, 0.38);
+    background-color: transparent;
+    background-image: none;
+    -gtk-icon-transform: scale(0.62);
+    transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.task-row.priority-none checkbutton check:checked {
+    background-color: @accent_bg_color;
+    border-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+.task-row.priority-low checkbutton check {
+    border-color: #26a269;
+}
+.task-row.priority-low checkbutton check:checked {
+    background-color: #26a269;
+    border-color: #26a269;
+    color: #ffffff;
+}
+
+.task-row.priority-medium checkbutton check {
+    border-color: #e5a50a;
+}
+.task-row.priority-medium checkbutton check:checked {
+    background-color: #e5a50a;
+    border-color: #e5a50a;
+    color: #ffffff;
+}
+
+.task-row.priority-high checkbutton check {
+    border-color: #ff7800;
+}
+.task-row.priority-high checkbutton check:checked {
+    background-color: #ff7800;
+    border-color: #ff7800;
+    color: #ffffff;
+}
+
+.task-row.priority-urgent checkbutton check {
+    border-color: #e01b24;
+}
+.task-row.priority-urgent checkbutton check:checked {
+    background-color: #e01b24;
+    border-color: #e01b24;
+    color: #ffffff;
 }
 
 .sidebar-card {
@@ -109,11 +140,13 @@ window.kromodo-dark headerbar {
 }
 
 .task-list row {
-    border-radius: 8px;
-    margin-bottom: 2px;
+    border-radius: 6px;
+    margin-bottom: 0;
+    padding: 0;
     background-color: transparent;
 }
 
-.task-list row:hover {
-    background-color: alpha(currentColor, 0.05);
+.task-list row:hover,
+.task-list row:selected {
+    background-color: transparent;
 }
