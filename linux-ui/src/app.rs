@@ -74,16 +74,17 @@ impl SimpleComponent for App {
 
                             gtk::Box {
                                 set_orientation: gtk::Orientation::Horizontal,
-                                set_spacing: 12,
+                                set_spacing: 6,
                                 set_margin_bottom: 4,
 
                                 gtk::Image {
-                                    set_pixel_size: 28,
+                                    set_pixel_size: 16,
+                                    add_css_class: "view-icon",
                                     #[watch]
                                     set_icon_name: Some(model.selection.icon()),
                                 },
                                 gtk::Label {
-                                    add_css_class: "title-1",
+                                    set_css_classes: &["title-2", "view-title"],
                                     set_halign: gtk::Align::Start,
                                     #[watch]
                                     set_label: model.selection.title(),
