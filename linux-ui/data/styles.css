@@ -221,3 +221,111 @@ window.kromodo-dark headerbar {
     min-width: 34px;
     min-height: 34px;
 }
+
+/* Inline task editor */
+.task-edit-card {
+    padding: 4px 6px;
+    border-radius: 8px;
+    background-color: alpha(currentColor, 0.03);
+    border: 1px solid alpha(currentColor, 0.08);
+    margin-bottom: 2px;
+}
+
+.task-title-btn {
+    background: none;
+    padding: 0;
+    min-height: 0;
+    border: none;
+}
+
+.task-title-btn:hover {
+    background: none;
+}
+
+.task-edit-title {
+    background: transparent;
+    font-size: 0.92em;
+    font-weight: 400;
+    padding: 0;
+    min-height: 0;
+    border: none;
+    outline: none;
+    box-shadow: none;
+}
+
+.task-edit-title:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.task-edit-description {
+    font-size: 0.85em;
+    border-radius: 6px;
+    padding: 0;
+    min-height: 40px;
+}
+
+.task-edit-description text {
+    background: transparent;
+}
+
+.task-close-btn {
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0;
+    opacity: 0.5;
+}
+
+.task-edit-chip {
+    padding: 1px 8px;
+    min-height: 22px;
+    border-radius: 999px;
+    font-size: 0.82em;
+}
+
+.priority-dot {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    border-radius: 4px;
+    font-size: 0.72em;
+    font-weight: 700;
+    opacity: 0.6;
+}
+
+.priority-dot:hover {
+    opacity: 1.0;
+}
+
+.priority-dot-low {
+    color: #26a269;
+}
+
+.priority-dot-medium {
+    color: #e5a50a;
+}
+
+.priority-dot-high {
+    color: #ff7800;
+}
+
+.priority-dot-urgent {
+    color: #e01b24;
+}
+
+.priority-dot-active {
+    opacity: 1.0;
+    background-color: alpha(currentColor, 0.15);
+}
+
+.task-delete-btn {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    color: #e01b24;
+    opacity: 0.5;
+}
+
+.task-delete-btn:hover {
+    opacity: 1.0;
+}

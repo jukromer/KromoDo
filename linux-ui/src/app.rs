@@ -8,6 +8,7 @@ use std::sync::Arc;
 use crate::components::quick_add::{QuickAdd, QuickAddInput, QuickAddOutput};
 use crate::components::sidebar::{Sidebar, SidebarOutput, SidebarSelection};
 use crate::components::task_row::{TaskRow, TaskRowOutput};
+use kromodo_core::Task;
 
 pub struct App {
     state: Arc<AppState>,
@@ -22,6 +23,8 @@ pub struct App {
 pub enum AppMsg {
     OpenQuickAdd,
     AddTask { title: String, description: String },
+    UpdateTask(Task),
+    DeleteTask(i64),
     ToggleTask(i64),
     Refresh,
     SelectView(SidebarSelection),
@@ -181,6 +184,8 @@ impl SimpleComponent for App {
             .launch(gtk::ListBox::default())
             .forward(sender.input_sender(), |output| match output {
                 TaskRowOutput::Toggled(id) => AppMsg::ToggleTask(id),
+                TaskRowOutput::Updated(task) => AppMsg::UpdateTask(task),
+                TaskRowOutput::Deleted(id) => AppMsg::DeleteTask(id),
             });
 
         match state.list_tasks() {
@@ -216,6 +221,18 @@ impl SimpleComponent for App {
             AppMsg::AddTask { title, description } => {
                 if let Err(err) = self.state.add_task(&title, &description, 0, None, false) {
                     eprintln!("kromodo: add_task failed: {err}");
+                }
+                sender.input(AppMsg::Refresh);
+            }
+            AppMsg::UpdateTask(mut task) => {
+                if let Err(err) = self.state.update_task(&mut task) {
+                    eprintln!("kromodo: update_task failed: {err}");
+                }
+                sender.input(AppMsg::Refresh);
+            }
+            AppMsg::DeleteTask(id) => {
+                if let Err(err) = self.state.delete_task(id) {
+                    eprintln!("kromodo: delete_task failed: {err}");
                 }
                 sender.input(AppMsg::Refresh);
             }
