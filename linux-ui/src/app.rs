@@ -91,25 +91,6 @@ impl SimpleComponent for App {
                                 },
                             },
 
-                            gtk::Button {
-                                set_css_classes: &["flat", "task-add-link"],
-                                set_halign: gtk::Align::Start,
-                                connect_clicked => AppMsg::OpenQuickAdd,
-
-                                #[wrap(Some)]
-                                set_child = &gtk::Box {
-                                    set_orientation: gtk::Orientation::Horizontal,
-                                    set_spacing: 8,
-                                    gtk::Image {
-                                        set_icon_name: Some("list-add-symbolic"),
-                                        set_pixel_size: 14,
-                                    },
-                                    gtk::Label {
-                                        set_label: "Add tasks",
-                                    },
-                                },
-                            },
-
                             gtk::ScrolledWindow {
                                 set_vexpand: true,
                                 set_hscrollbar_policy: gtk::PolicyType::Never,
@@ -122,6 +103,25 @@ impl SimpleComponent for App {
                                     task_list_box -> gtk::ListBox {
                                         add_css_class: "task-list",
                                         set_selection_mode: gtk::SelectionMode::None,
+                                    },
+
+                                    gtk::Button {
+                                        set_css_classes: &["flat", "task-add-link"],
+                                        set_halign: gtk::Align::Start,
+                                        connect_clicked => AppMsg::OpenQuickAdd,
+
+                                        #[wrap(Some)]
+                                        set_child = &gtk::Box {
+                                            set_orientation: gtk::Orientation::Horizontal,
+                                            set_spacing: 8,
+                                            gtk::Image {
+                                                set_icon_name: Some("list-add-symbolic"),
+                                                set_pixel_size: 14,
+                                            },
+                                            gtk::Label {
+                                                set_label: "Add tasks",
+                                            },
+                                        },
                                     },
                                 },
                             },
