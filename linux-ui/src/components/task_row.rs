@@ -298,6 +298,7 @@ impl FactoryComponent for TaskRow {
     fn update(&mut self, msg: TaskRowInput, sender: FactorySender<Self>) {
         match msg {
             TaskRowInput::Toggle => {
+                self.task.is_done = !self.task.is_done;
                 sender.output(TaskRowOutput::Toggled(self.task.id)).ok();
             }
             TaskRowInput::ToggleExpand => {
