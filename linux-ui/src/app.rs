@@ -24,6 +24,7 @@ pub enum AppMsg {
     OpenQuickAdd,
     AddTask { title: String, description: String },
     UpdateTask(Task),
+    DuplicateTask(Task),
     DeleteTask(i64),
     ToggleTask(i64),
     Refresh,
@@ -185,6 +186,7 @@ impl SimpleComponent for App {
             .forward(sender.input_sender(), |output| match output {
                 TaskRowOutput::Toggled(id) => AppMsg::ToggleTask(id),
                 TaskRowOutput::Updated(task) => AppMsg::UpdateTask(task),
+                TaskRowOutput::Duplicated(task) => AppMsg::DuplicateTask(task),
                 TaskRowOutput::Deleted(id) => AppMsg::DeleteTask(id),
             });
 
@@ -227,6 +229,18 @@ impl SimpleComponent for App {
             AppMsg::UpdateTask(mut task) => {
                 if let Err(err) = self.state.update_task(&mut task) {
                     eprintln!("kromodo: update_task failed: {err}");
+                }
+                sender.input(AppMsg::Refresh);
+            }
+            AppMsg::DuplicateTask(task) => {
+                if let Err(err) = self.state.add_task(
+                    &task.title,
+                    &task.description,
+                    task.priority,
+                    task.due_date,
+                    task.has_due_time,
+                ) {
+                    eprintln!("kromodo: duplicate_task failed: {err}");
                 }
                 sender.input(AppMsg::Refresh);
             }

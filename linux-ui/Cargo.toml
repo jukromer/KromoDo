@@ -9,5 +9,6 @@ path = "src/main.rs"
 
 [dependencies]
 kromodo-core = { path = "../core" }
+chrono.workspace = true
 relm4 = { version = "0.11", features = ["libadwaita", "gnome_46"] }
 relm4-icons = "0.11"
