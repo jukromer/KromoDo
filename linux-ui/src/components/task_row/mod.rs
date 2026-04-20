@@ -1,4 +1,4 @@
-use chrono::{Duration, Utc};
+use chrono::{Datelike, Duration, Local, NaiveDate, TimeZone, Utc};
 use kromodo_core::Task;
 use relm4::gtk;
 use relm4::gtk::glib;
@@ -27,6 +27,8 @@ pub enum TaskRowInput {
     SetPriority(i8),
     SetDueToday,
     SetDueTomorrow,
+    SetDueDate { year: i32, month: u32, day: u32 },
+    ClearDueDate,
     Duplicate,
     Delete,
 }
@@ -37,6 +39,21 @@ pub enum TaskRowOutput {
     Updated(Task),
     Duplicated(Task),
     Deleted(i64),
+}
+
+fn format_due_display(due: Option<chrono::DateTime<Utc>>) -> Option<String> {
+    let dt = due?;
+    let local = dt.with_timezone(&Local).date_naive();
+    let today = Local::now().date_naive();
+    Some(if local == today {
+        "Today".to_string()
+    } else if Some(local) == today.succ_opt() {
+        "Tomorrow".to_string()
+    } else if Some(local) == today.pred_opt() {
+        "Yesterday".to_string()
+    } else {
+        local.format("%a, %-d %b").to_string()
+    })
 }
 
 fn priority_class(priority: i8) -> &'static str {
@@ -170,6 +187,16 @@ impl FactoryComponent for TaskRow {
                     connect_activate => TaskRowInput::SaveAndCollapse,
                 },
 
+                gtk::Label {
+                    #[watch]
+                    set_visible: !self.expanded && self.task.due_date.is_some(),
+                    #[watch]
+                    set_label: &format_due_display(self.task.due_date).unwrap_or_default(),
+                    set_css_classes: &["caption", "dim-label", "task-due-label"],
+                    set_valign: gtk::Align::Center,
+                    set_margin_end: 4,
+                },
+
                 gtk::Button {
                     #[watch]
                     set_visible: self.expanded,
@@ -208,9 +235,9 @@ impl FactoryComponent for TaskRow {
                         set_orientation: gtk::Orientation::Horizontal,
                         set_spacing: 6,
 
-                        gtk::Button {
+                        #[name = "date_chip"]
+                        gtk::MenuButton {
                             set_css_classes: &["flat", "task-edit-chip"],
-                            set_sensitive: false,
 
                             #[wrap(Some)]
                             set_child = &gtk::Box {
@@ -218,7 +245,9 @@ impl FactoryComponent for TaskRow {
                                 set_spacing: 4,
                                 gtk::Image { set_icon_name: Some("x-office-calendar-symbolic") },
                                 gtk::Label {
-                                    set_label: "Date",
+                                    #[watch]
+                                    set_label: &format_due_display(self.task.due_date)
+                                        .unwrap_or_else(|| "Date".to_string()),
                                     add_css_class: "caption",
                                 },
                             },
@@ -335,6 +364,8 @@ impl FactoryComponent for TaskRow {
         });
         root.add_controller(gesture);
 
+        attach_date_picker(&widgets.date_chip, self.task.due_date, &sender);
+
         widgets
     }
 
@@ -385,6 +416,29 @@ impl FactoryComponent for TaskRow {
                     .output(TaskRowOutput::Updated(self.task.clone()))
                     .ok();
             }
+            TaskRowInput::SetDueDate { year, month, day } => {
+                let Some(naive) = NaiveDate::from_ymd_opt(year, month, day) else {
+                    return;
+                };
+                let Some(local) = Local
+                    .from_local_datetime(&naive.and_hms_opt(0, 0, 0).unwrap())
+                    .single()
+                else {
+                    return;
+                };
+                self.task.due_date = Some(local.with_timezone(&Utc));
+                self.task.has_due_time = false;
+                sender
+                    .output(TaskRowOutput::Updated(self.task.clone()))
+                    .ok();
+            }
+            TaskRowInput::ClearDueDate => {
+                self.task.due_date = None;
+                self.task.has_due_time = false;
+                sender
+                    .output(TaskRowOutput::Updated(self.task.clone()))
+                    .ok();
+            }
             TaskRowInput::Duplicate => {
                 sender
                     .output(TaskRowOutput::Duplicated(self.task.clone()))
@@ -395,4 +449,74 @@ impl FactoryComponent for TaskRow {
             }
         }
     }
+}
+
+fn attach_date_picker(
+    menu_button: &gtk::MenuButton,
+    initial: Option<chrono::DateTime<Utc>>,
+    sender: &FactorySender<TaskRow>,
+) {
+    let calendar = gtk::Calendar::new();
+    if let Some(due) = initial {
+        let local = due.with_timezone(&Local);
+        if let Ok(dt) = glib::DateTime::from_local(
+            local.year(),
+            local.month() as i32,
+            local.day() as i32,
+            0,
+            0,
+            0.0,
+        ) {
+            calendar.select_day(&dt);
+        }
+    }
+
+    let clear_btn = gtk::Button::with_label("Clear");
+    clear_btn.add_css_class("flat");
+    let ok_btn = gtk::Button::with_label("OK");
+    ok_btn.add_css_class("suggested-action");
+
+    let btn_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    btn_box.set_halign(gtk::Align::End);
+    btn_box.append(&clear_btn);
+    btn_box.append(&ok_btn);
+
+    let popover_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    popover_box.set_margin_start(8);
+    popover_box.set_margin_end(8);
+    popover_box.set_margin_top(8);
+    popover_box.set_margin_bottom(8);
+    popover_box.append(&calendar);
+    popover_box.append(&btn_box);
+
+    let popover = gtk::Popover::new();
+    popover.add_css_class("date-picker-popover");
+    popover.set_child(Some(&popover_box));
+    menu_button.set_popover(Some(&popover));
+
+    let s = sender.clone();
+    let cal_weak = calendar.downgrade();
+    let popover_weak = popover.downgrade();
+    ok_btn.connect_clicked(move |_| {
+        let Some(cal) = cal_weak.upgrade() else {
+            return;
+        };
+        s.input(TaskRowInput::SetDueDate {
+            year: cal.year(),
+            month: (cal.month() + 1) as u32,
+            day: cal.day() as u32,
+        });
+        if let Some(p) = popover_weak.upgrade() {
+            p.popdown();
+        }
+    });
+
+    let s = sender.clone();
+    let popover_weak = popover.downgrade();
+    clear_btn.connect_clicked(move |_| {
+        s.input(TaskRowInput::ClearDueDate);
+        if let Some(p) = popover_weak.upgrade() {
+            p.popdown();
+        }
+    });
 }

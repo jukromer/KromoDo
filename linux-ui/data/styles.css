@@ -283,6 +283,10 @@ window.kromodo-dark headerbar {
     font-size: 0.82em;
 }
 
+.task-due-label {
+    font-size: 0.82em;
+}
+
 .priority-dot {
     min-width: 24px;
     min-height: 24px;
@@ -332,7 +336,8 @@ window.kromodo-dark headerbar {
 
 /* Context menu popover */
 popover.task-context-menu,
-popover.menu {
+popover.menu,
+popover.date-picker-popover {
     padding: 4px;
     border-radius: 10px;
     border: 1px solid alpha(white, 0.08);
@@ -341,11 +346,19 @@ popover.menu {
 }
 
 popover.task-context-menu > contents,
-popover.menu > contents {
+popover.menu > contents,
+popover.date-picker-popover > contents {
     background: transparent;
     border: none;
     box-shadow: none;
     padding: 0;
+}
+
+popover.date-picker-popover calendar,
+popover.date-picker-popover calendar > header {
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 
 .context-menu-item {
