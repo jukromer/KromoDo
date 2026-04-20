@@ -112,6 +112,8 @@ impl SimpleComponent for App {
                                     gtk::Button {
                                         set_css_classes: &["flat", "task-add-link"],
                                         set_halign: gtk::Align::Start,
+                                        #[watch]
+                                        set_visible: matches!(model.selection, SidebarSelection::Inbox),
                                         connect_clicked => AppMsg::OpenQuickAdd,
 
                                         #[wrap(Some)]
