@@ -256,18 +256,27 @@ impl SimpleComponent for App {
                 }
                 sender.input(AppMsg::Refresh);
             }
-            AppMsg::Refresh => match self.state.list_tasks() {
-                Ok(updated_tasks) => {
-                    let mut guard = self.tasks.guard();
-                    guard.clear();
-                    for task in updated_tasks {
-                        guard.push_back(task);
+            AppMsg::Refresh => {
+                let result = match self.selection {
+                    SidebarSelection::Inbox => self.state.list_tasks(),
+                    SidebarSelection::Today
+                    | SidebarSelection::Scheduled
+                    | SidebarSelection::Labels => Ok(Vec::new()),
+                };
+                match result {
+                    Ok(updated_tasks) => {
+                        let mut guard = self.tasks.guard();
+                        guard.clear();
+                        for task in updated_tasks {
+                            guard.push_back(task);
+                        }
                     }
+                    Err(err) => eprintln!("kromodo: list_tasks failed: {err}"),
                 }
-                Err(err) => eprintln!("kromodo: list_tasks failed: {err}"),
-            },
+            }
             AppMsg::SelectView(selection) => {
                 self.selection = selection;
+                sender.input(AppMsg::Refresh);
             }
             AppMsg::ToggleSidebar => {
                 self.show_sidebar = !self.show_sidebar;
