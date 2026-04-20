@@ -1,4 +1,5 @@
 use adw::prelude::*;
+use chrono::{Local, TimeZone};
 use kromodo_core::AppState;
 use relm4::gtk::gdk;
 use relm4::prelude::*;
@@ -261,9 +262,13 @@ impl SimpleComponent for App {
             AppMsg::Refresh => {
                 let result = match self.selection {
                     SidebarSelection::Inbox => self.state.list_tasks(),
-                    SidebarSelection::Today
-                    | SidebarSelection::Scheduled
-                    | SidebarSelection::Labels => Ok(Vec::new()),
+                    SidebarSelection::Today => {
+                        let (from, to) = today_range();
+                        self.state.list_tasks_due_between(from, to)
+                    }
+                    SidebarSelection::Scheduled | SidebarSelection::Labels => {
+                        Ok(Vec::new())
+                    }
                 };
                 match result {
                     Ok(updated_tasks) => {
@@ -285,6 +290,22 @@ impl SimpleComponent for App {
             }
         }
     }
+}
+
+fn today_range() -> (chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>) {
+    let today = Local::now().date_naive();
+    let tomorrow = today.succ_opt().expect("date overflow");
+    let start = Local
+        .from_local_datetime(&today.and_hms_opt(0, 0, 0).unwrap())
+        .single()
+        .expect("ambiguous local time")
+        .with_timezone(&chrono::Utc);
+    let end = Local
+        .from_local_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap())
+        .single()
+        .expect("ambiguous local time")
+        .with_timezone(&chrono::Utc);
+    (start, end)
 }
 
 fn apply_dark_class(window: &adw::ApplicationWindow, is_dark: bool) {
