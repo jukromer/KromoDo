@@ -1,5 +1,5 @@
 use chrono::{Datelike, Duration, Local, NaiveDate, TimeZone, Utc};
-use kromodo_core::{Priority, Task};
+use kromodo_core::{due_bucket, DueBucket, Priority, Task};
 use relm4::gtk;
 use relm4::gtk::glib;
 use relm4::gtk::prelude::*;
@@ -43,16 +43,15 @@ pub enum TaskRowOutput {
 
 fn format_due_display(due: Option<chrono::DateTime<Utc>>) -> Option<String> {
     let dt = due?;
-    let local = dt.with_timezone(&Local).date_naive();
-    let today = Local::now().date_naive();
-    Some(if local == today {
-        "Today".to_string()
-    } else if Some(local) == today.succ_opt() {
-        "Tomorrow".to_string()
-    } else if Some(local) == today.pred_opt() {
-        "Yesterday".to_string()
-    } else {
-        local.format("%a, %-d %b").to_string()
+    Some(match due_bucket(dt, Utc::now()) {
+        DueBucket::Today => "Today".to_string(),
+        DueBucket::Tomorrow => "Tomorrow".to_string(),
+        DueBucket::Yesterday => "Yesterday".to_string(),
+        DueBucket::Other => dt
+            .with_timezone(&Local)
+            .date_naive()
+            .format("%a, %-d %b")
+            .to_string(),
     })
 }
 

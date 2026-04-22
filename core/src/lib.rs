@@ -7,6 +7,7 @@ mod models;
 pub use chrono::{DateTime, Utc};
 pub use error::{CoreError, CoreResult};
 pub use filter::TaskFilter;
+pub use models::due::{due_bucket, DueBucket};
 pub use models::priority::Priority;
 pub use models::task::Task;
 
