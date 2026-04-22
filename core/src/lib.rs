@@ -58,7 +58,7 @@ impl AppState {
         self.db.lock().unwrap().update_task(task)
     }
 
-    pub fn toggle_task(&self, id: i64) -> CoreResult<bool> {
+    pub fn toggle_task(&self, id: i64) -> CoreResult<Option<Task>> {
         self.db.lock().unwrap().toggle_task(id)
     }
 

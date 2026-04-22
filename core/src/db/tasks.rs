@@ -132,17 +132,23 @@ impl Database {
         }
     }
 
-    pub fn toggle_task(&self, id: i64) -> CoreResult<bool> {
+    pub fn toggle_task(&self, id: i64) -> CoreResult<Option<Task>> {
+        use rusqlite::OptionalExtension;
+
         let now = Utc::now();
-        let affected = self.conn.execute(
+        let sql = format!(
             "UPDATE tasks
                 SET is_done      = NOT is_done,
                     completed_at = CASE WHEN is_done = 0 THEN ?1 ELSE NULL END,
                     updated_at   = ?1
-              WHERE id = ?2",
-            rusqlite::params![now, id],
-        )?;
-        Ok(affected > 0)
+              WHERE id = ?2
+              RETURNING {SELECT_COLUMNS}"
+        );
+        let task = self
+            .conn
+            .query_row(&sql, rusqlite::params![now, id], map_task_row)
+            .optional()?;
+        Ok(task)
     }
 
     pub fn delete_task(&self, id: i64) -> CoreResult<bool> {
