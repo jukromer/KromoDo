@@ -401,6 +401,9 @@ impl FactoryComponent for TaskRow {
                 } else {
                     self.task.priority = level;
                 }
+                sender
+                    .output(TaskRowOutput::Updated(self.task.clone()))
+                    .ok();
             }
             TaskRowInput::SetDueToday => {
                 self.task.due_date = Some(Utc::now());

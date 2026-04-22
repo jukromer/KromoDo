@@ -236,7 +236,6 @@ impl SimpleComponent for App {
                 if let Err(err) = self.state.update_task(&mut task) {
                     eprintln!("kromodo: update_task failed: {err}");
                 }
-                sender.input(AppMsg::Refresh);
             }
             AppMsg::DuplicateTask(id) => {
                 if let Err(err) = self.state.duplicate_task(id) {
