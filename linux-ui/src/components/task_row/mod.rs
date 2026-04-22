@@ -37,7 +37,7 @@ pub enum TaskRowInput {
 pub enum TaskRowOutput {
     Toggled(i64),
     Updated(Task),
-    Duplicated(Task),
+    Duplicated(i64),
     Deleted(i64),
 }
 
@@ -440,9 +440,7 @@ impl FactoryComponent for TaskRow {
                     .ok();
             }
             TaskRowInput::Duplicate => {
-                sender
-                    .output(TaskRowOutput::Duplicated(self.task.clone()))
-                    .ok();
+                sender.output(TaskRowOutput::Duplicated(self.task.id)).ok();
             }
             TaskRowInput::Delete => {
                 sender.output(TaskRowOutput::Deleted(self.task.id)).ok();

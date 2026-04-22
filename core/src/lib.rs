@@ -65,4 +65,8 @@ impl AppState {
     pub fn delete_task(&self, id: i64) -> CoreResult<bool> {
         self.db.lock().unwrap().delete_task(id)
     }
+
+    pub fn duplicate_task(&self, id: i64) -> CoreResult<Task> {
+        self.db.lock().unwrap().duplicate_task(id)
+    }
 }

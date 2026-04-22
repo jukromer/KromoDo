@@ -152,6 +152,28 @@ impl Database {
         )?;
         Ok(affected > 0)
     }
+
+    pub fn duplicate_task(&self, id: i64) -> CoreResult<Task> {
+        use rusqlite::OptionalExtension;
+
+        let sql = format!("SELECT {SELECT_COLUMNS} FROM tasks WHERE id = ?1");
+        let original: Option<Task> = self
+            .conn
+            .query_row(&sql, rusqlite::params![id], map_task_row)
+            .optional()?;
+
+        let Some(original) = original else {
+            return Err(CoreError::Validation(format!("Task {id} not found")));
+        };
+
+        self.add_task(
+            &original.title,
+            &original.description,
+            original.priority,
+            original.due_date,
+            original.has_due_time,
+        )
+    }
 }
 
 fn map_task_row(row: &rusqlite::Row) -> rusqlite::Result<Task> {
