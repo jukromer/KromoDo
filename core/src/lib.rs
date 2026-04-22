@@ -1,10 +1,12 @@
 mod db;
 mod error;
+mod filter;
 mod migration;
 mod models;
 
 pub use chrono::{DateTime, Utc};
 pub use error::{CoreError, CoreResult};
+pub use filter::TaskFilter;
 pub use models::priority::Priority;
 pub use models::task::Task;
 
@@ -38,20 +40,8 @@ impl AppState {
         )
     }
 
-    pub fn list_tasks(&self) -> CoreResult<Vec<Task>> {
-        self.db.lock().unwrap().list_tasks()
-    }
-
-    pub fn list_tasks_due_between(
-        &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
-    ) -> CoreResult<Vec<Task>> {
-        self.db.lock().unwrap().list_tasks_due_between(from, to)
-    }
-
-    pub fn list_completed_tasks(&self) -> CoreResult<Vec<Task>> {
-        self.db.lock().unwrap().list_completed_tasks()
+    pub fn list_tasks_for_filter(&self, filter: TaskFilter) -> CoreResult<Vec<Task>> {
+        self.db.lock().unwrap().list_tasks_for_filter(filter)
     }
 
     pub fn update_task(&self, task: &mut Task) -> CoreResult<bool> {

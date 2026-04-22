@@ -1,4 +1,5 @@
 use adw::prelude::*;
+use kromodo_core::TaskFilter;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,6 +26,15 @@ impl SidebarSelection {
             Self::Today => "Today",
             Self::Scheduled => "Scheduled",
             Self::Labels => "Labels",
+        }
+    }
+
+    pub fn task_filter(self) -> Option<TaskFilter> {
+        match self {
+            Self::Inbox => Some(TaskFilter::Inbox),
+            Self::Today => Some(TaskFilter::Today),
+            Self::Scheduled => Some(TaskFilter::Upcoming),
+            Self::Labels => None,
         }
     }
 

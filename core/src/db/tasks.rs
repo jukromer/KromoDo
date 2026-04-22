@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 
 use crate::db::Database;
 use crate::error::{CoreError, CoreResult};
+use crate::filter::{today_range, TaskFilter};
 use crate::models::priority::Priority;
 use crate::models::task::Task;
 
@@ -53,7 +54,19 @@ impl Database {
         })
     }
 
-    pub fn list_tasks(&self) -> CoreResult<Vec<Task>> {
+    pub fn list_tasks_for_filter(&self, filter: TaskFilter) -> CoreResult<Vec<Task>> {
+        match filter {
+            TaskFilter::Inbox => self.list_all_tasks(),
+            TaskFilter::Today => {
+                let (from, to) = today_range();
+                self.list_tasks_due_between(from, to)
+            }
+            TaskFilter::Upcoming => Ok(Vec::new()),
+            TaskFilter::Completed => self.list_completed_tasks(),
+        }
+    }
+
+    fn list_all_tasks(&self) -> CoreResult<Vec<Task>> {
         let sql = format!("SELECT {SELECT_COLUMNS} FROM tasks ORDER BY id DESC");
         let mut stmt = self.conn.prepare(&sql)?;
         let tasks = stmt
@@ -62,7 +75,7 @@ impl Database {
         Ok(tasks)
     }
 
-    pub fn list_tasks_due_between(
+    fn list_tasks_due_between(
         &self,
         from: DateTime<Utc>,
         to: DateTime<Utc>,
@@ -81,7 +94,7 @@ impl Database {
         Ok(tasks)
     }
 
-    pub fn list_completed_tasks(&self) -> CoreResult<Vec<Task>> {
+    fn list_completed_tasks(&self) -> CoreResult<Vec<Task>> {
         let sql = format!(
             "SELECT {SELECT_COLUMNS} FROM tasks
              WHERE is_done = 1
