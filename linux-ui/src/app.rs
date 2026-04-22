@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::components::quick_add::{QuickAdd, QuickAddInput, QuickAddOutput};
 use crate::components::sidebar::{Sidebar, SidebarOutput, SidebarSelection};
 use crate::components::task_row::{TaskRow, TaskRowOutput};
-use kromodo_core::Task;
+use kromodo_core::{Priority, Task};
 
 pub struct App {
     state: Arc<AppState>,
@@ -224,7 +224,10 @@ impl SimpleComponent for App {
                 self.quick_add.sender().send(QuickAddInput::Present).ok();
             }
             AppMsg::AddTask { title, description } => {
-                if let Err(err) = self.state.add_task(&title, &description, 0, None, false) {
+                if let Err(err) = self
+                    .state
+                    .add_task(&title, &description, Priority::None, None, false)
+                {
                     eprintln!("kromodo: add_task failed: {err}");
                 }
                 sender.input(AppMsg::Refresh);

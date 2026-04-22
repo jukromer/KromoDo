@@ -1,5 +1,5 @@
 use chrono::{Datelike, Duration, Local, NaiveDate, TimeZone, Utc};
-use kromodo_core::Task;
+use kromodo_core::{Priority, Task};
 use relm4::gtk;
 use relm4::gtk::glib;
 use relm4::gtk::prelude::*;
@@ -24,7 +24,7 @@ pub enum TaskRowInput {
     Toggle,
     ToggleExpand,
     SaveAndCollapse,
-    SetPriority(i8),
+    SetPriority(Priority),
     SetDueToday,
     SetDueTomorrow,
     SetDueDate { year: i32, month: u32, day: u32 },
@@ -56,13 +56,13 @@ fn format_due_display(due: Option<chrono::DateTime<Utc>>) -> Option<String> {
     })
 }
 
-fn priority_class(priority: i8) -> &'static str {
+fn priority_class(priority: Priority) -> &'static str {
     match priority {
-        1 => "priority-low",
-        2 => "priority-medium",
-        3 => "priority-high",
-        4 => "priority-urgent",
-        _ => "priority-none",
+        Priority::Low => "priority-low",
+        Priority::Medium => "priority-medium",
+        Priority::High => "priority-high",
+        Priority::Urgent => "priority-urgent",
+        Priority::None => "priority-none",
     }
 }
 
@@ -91,14 +91,14 @@ impl TaskRow {
         }
     }
 
-    fn priority_dot_classes(&self, level: i8) -> Vec<&'static str> {
+    fn priority_dot_classes(&self, level: Priority) -> Vec<&'static str> {
         let mut classes = vec!["priority-dot"];
         classes.push(match level {
-            1 => "priority-dot-low",
-            2 => "priority-dot-medium",
-            3 => "priority-dot-high",
-            4 => "priority-dot-urgent",
-            _ => "",
+            Priority::Low => "priority-dot-low",
+            Priority::Medium => "priority-dot-medium",
+            Priority::High => "priority-dot-high",
+            Priority::Urgent => "priority-dot-urgent",
+            Priority::None => "",
         });
         if self.task.priority == level {
             classes.push("priority-dot-active");
@@ -258,30 +258,30 @@ impl FactoryComponent for TaskRow {
                         gtk::Button {
                             set_label: "!",
                             #[watch]
-                            set_css_classes: &self.priority_dot_classes(1),
+                            set_css_classes: &self.priority_dot_classes(Priority::Low),
                             set_tooltip_text: Some("Low"),
-                            connect_clicked => TaskRowInput::SetPriority(1),
+                            connect_clicked => TaskRowInput::SetPriority(Priority::Low),
                         },
                         gtk::Button {
                             set_label: "!!",
                             #[watch]
-                            set_css_classes: &self.priority_dot_classes(2),
+                            set_css_classes: &self.priority_dot_classes(Priority::Medium),
                             set_tooltip_text: Some("Medium"),
-                            connect_clicked => TaskRowInput::SetPriority(2),
+                            connect_clicked => TaskRowInput::SetPriority(Priority::Medium),
                         },
                         gtk::Button {
                             set_label: "!!!",
                             #[watch]
-                            set_css_classes: &self.priority_dot_classes(3),
+                            set_css_classes: &self.priority_dot_classes(Priority::High),
                             set_tooltip_text: Some("High"),
-                            connect_clicked => TaskRowInput::SetPriority(3),
+                            connect_clicked => TaskRowInput::SetPriority(Priority::High),
                         },
                         gtk::Button {
                             set_label: "!!!!",
                             #[watch]
-                            set_css_classes: &self.priority_dot_classes(4),
+                            set_css_classes: &self.priority_dot_classes(Priority::Urgent),
                             set_tooltip_text: Some("Urgent"),
-                            connect_clicked => TaskRowInput::SetPriority(4),
+                            connect_clicked => TaskRowInput::SetPriority(Priority::Urgent),
                         },
                     },
 
@@ -397,7 +397,7 @@ impl FactoryComponent for TaskRow {
             }
             TaskRowInput::SetPriority(level) => {
                 if self.task.priority == level {
-                    self.task.priority = 0;
+                    self.task.priority = Priority::None;
                 } else {
                     self.task.priority = level;
                 }

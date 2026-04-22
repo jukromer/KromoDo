@@ -5,6 +5,7 @@ mod models;
 
 pub use chrono::{DateTime, Utc};
 pub use error::{CoreError, CoreResult};
+pub use models::priority::Priority;
 pub use models::task::Task;
 
 use db::Database;
@@ -24,7 +25,7 @@ impl AppState {
         &self,
         title: &str,
         description: &str,
-        priority: i8,
+        priority: Priority,
         due_date: Option<DateTime<Utc>>,
         has_due_time: bool,
     ) -> CoreResult<Task> {

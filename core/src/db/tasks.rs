@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 
 use crate::db::Database;
 use crate::error::{CoreError, CoreResult};
+use crate::models::priority::Priority;
 use crate::models::task::Task;
 
 const SELECT_COLUMNS: &str = "id, title, description, is_done, priority, \
@@ -12,7 +13,7 @@ impl Database {
         &self,
         title: &str,
         description: &str,
-        priority: i8,
+        priority: Priority,
         due_date: Option<DateTime<Utc>>,
         has_due_time: bool,
     ) -> CoreResult<Task> {
