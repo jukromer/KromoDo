@@ -61,7 +61,10 @@ impl Database {
                 let (from, to) = today_range();
                 self.list_tasks_due_between(from, to)
             }
-            TaskFilter::Upcoming => Ok(Vec::new()),
+            TaskFilter::Upcoming => {
+                let (_, tomorrow_start) = today_range();
+                self.list_upcoming_tasks(tomorrow_start)
+            }
             TaskFilter::Completed => self.list_completed_tasks(),
         }
     }
@@ -90,6 +93,21 @@ impl Database {
         let mut stmt = self.conn.prepare(&sql)?;
         let tasks = stmt
             .query_map(rusqlite::params![from, to], map_task_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(tasks)
+    }
+
+    fn list_upcoming_tasks(&self, from: DateTime<Utc>) -> CoreResult<Vec<Task>> {
+        let sql = format!(
+            "SELECT {SELECT_COLUMNS} FROM tasks
+             WHERE due_date IS NOT NULL
+               AND due_date >= ?1
+               AND is_done = 0
+             ORDER BY due_date ASC, id DESC"
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let tasks = stmt
+            .query_map(rusqlite::params![from], map_task_row)?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(tasks)
     }
