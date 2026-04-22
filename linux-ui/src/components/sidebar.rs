@@ -8,6 +8,7 @@ pub enum SidebarSelection {
     Today,
     Scheduled,
     Labels,
+    Completed,
 }
 
 impl SidebarSelection {
@@ -17,6 +18,7 @@ impl SidebarSelection {
             Self::Today => "starred-symbolic",
             Self::Scheduled => "x-office-calendar-symbolic",
             Self::Labels => "tag-symbolic",
+            Self::Completed => "checkbox-checked-symbolic",
         }
     }
 
@@ -26,6 +28,7 @@ impl SidebarSelection {
             Self::Today => "Today",
             Self::Scheduled => "Scheduled",
             Self::Labels => "Labels",
+            Self::Completed => "Completed",
         }
     }
 
@@ -35,11 +38,12 @@ impl SidebarSelection {
             Self::Today => Some(TaskFilter::Today),
             Self::Scheduled => Some(TaskFilter::Upcoming),
             Self::Labels => None,
+            Self::Completed => Some(TaskFilter::Completed),
         }
     }
 
     fn all() -> &'static [SidebarSelection] {
-        &[Self::Inbox, Self::Today, Self::Scheduled, Self::Labels]
+        &[Self::Inbox, Self::Today, Self::Scheduled, Self::Labels, Self::Completed]
     }
 }
 
