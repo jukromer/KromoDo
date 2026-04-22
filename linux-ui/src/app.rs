@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use crate::components::quick_add::{QuickAdd, QuickAddInput, QuickAddOutput};
 use crate::components::sidebar::{Sidebar, SidebarOutput, SidebarSelection};
-use crate::components::task_row::{TaskRow, TaskRowOutput};
-use kromodo_core::{Priority, Task};
+use crate::components::task_row::{TaskRow, TaskRowInput, TaskRowOutput};
+use kromodo_core::{CoreEvent, Priority, Task};
 
 pub struct App {
     state: Arc<AppState>,
@@ -30,6 +30,7 @@ pub enum AppMsg {
     Refresh,
     SelectView(SidebarSelection),
     ToggleSidebar,
+    CoreEvent(CoreEvent),
 }
 
 #[relm4::component(pub)]
@@ -205,6 +206,16 @@ impl SimpleComponent for App {
             Err(err) => eprintln!("kromodo: failed to load tasks: {err}"),
         }
 
+        let events = state.subscribe();
+        {
+            let sender = sender.clone();
+            std::thread::spawn(move || {
+                while let Ok(event) = events.recv() {
+                    sender.input(AppMsg::CoreEvent(event));
+                }
+            });
+        }
+
         let model = App {
             state,
             tasks,
@@ -232,7 +243,6 @@ impl SimpleComponent for App {
                 {
                     eprintln!("kromodo: add_task failed: {err}");
                 }
-                sender.input(AppMsg::Refresh);
             }
             AppMsg::UpdateTask(mut task) => {
                 if let Err(err) = self.state.update_task(&mut task) {
@@ -243,19 +253,16 @@ impl SimpleComponent for App {
                 if let Err(err) = self.state.duplicate_task(id) {
                     eprintln!("kromodo: duplicate_task failed: {err}");
                 }
-                sender.input(AppMsg::Refresh);
             }
             AppMsg::DeleteTask(id) => {
                 if let Err(err) = self.state.delete_task(id) {
                     eprintln!("kromodo: delete_task failed: {err}");
                 }
-                sender.input(AppMsg::Refresh);
             }
             AppMsg::ToggleTask(id) => {
                 if let Err(err) = self.state.toggle_task(id) {
                     eprintln!("kromodo: toggle_task failed: {err}");
                 }
-                sender.input(AppMsg::Refresh);
             }
             AppMsg::Refresh => {
                 let result = match self.selection.task_filter() {
@@ -280,6 +287,29 @@ impl SimpleComponent for App {
             AppMsg::ToggleSidebar => {
                 self.show_sidebar = !self.show_sidebar;
             }
+            AppMsg::CoreEvent(event) => match event {
+                CoreEvent::TaskCreated(task) => {
+                    self.tasks.guard().push_front(task);
+                }
+                CoreEvent::TaskUpdated(task) => {
+                    let guard = self.tasks.guard();
+                    let index = (0..guard.len()).find(|&i| {
+                        guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false)
+                    });
+                    drop(guard);
+                    if let Some(i) = index {
+                        self.tasks.send(i, TaskRowInput::ReplaceTask(task));
+                    }
+                }
+                CoreEvent::TaskDeleted(id) => {
+                    let mut guard = self.tasks.guard();
+                    let index = (0..guard.len())
+                        .find(|&i| guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
+                    if let Some(i) = index {
+                        guard.remove(i);
+                    }
+                }
+            },
         }
     }
 }

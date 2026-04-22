@@ -31,6 +31,7 @@ pub enum TaskRowInput {
     ClearDueDate,
     Duplicate,
     Delete,
+    ReplaceTask(Task),
 }
 
 #[derive(Debug)]
@@ -74,6 +75,10 @@ fn compact_row_classes(task: &Task) -> Vec<&'static str> {
 }
 
 impl TaskRow {
+    pub fn task_id(&self) -> i64 {
+        self.task.id
+    }
+
     fn formatted_title(&self) -> String {
         if self.task.is_done {
             format!("<s>{}</s>", glib::markup_escape_text(&self.task.title))
@@ -446,6 +451,10 @@ impl FactoryComponent for TaskRow {
             }
             TaskRowInput::Delete => {
                 sender.output(TaskRowOutput::Deleted(self.task.id)).ok();
+            }
+            TaskRowInput::ReplaceTask(task) => {
+                self.task = task;
+                self.is_done_mirror.set(self.task.is_done);
             }
         }
     }
