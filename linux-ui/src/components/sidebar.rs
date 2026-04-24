@@ -8,6 +8,7 @@ pub enum SidebarSelection {
     Today,
     Scheduled,
     Labels,
+    Filters,
     Completed,
 }
 
@@ -18,6 +19,7 @@ impl SidebarSelection {
             Self::Today => "starred-symbolic",
             Self::Scheduled => "x-office-calendar-symbolic",
             Self::Labels => "tag-symbolic",
+            Self::Filters => "preferences-other-symbolic",
             Self::Completed => "checkbox-checked-symbolic",
         }
     }
@@ -28,6 +30,7 @@ impl SidebarSelection {
             Self::Today => "Today",
             Self::Scheduled => "Scheduled",
             Self::Labels => "Labels",
+            Self::Filters => "Filters",
             Self::Completed => "Completed",
         }
     }
@@ -38,12 +41,20 @@ impl SidebarSelection {
             Self::Today => Some(TaskFilter::Today),
             Self::Scheduled => Some(TaskFilter::Upcoming),
             Self::Labels => None,
+            Self::Filters => None,
             Self::Completed => Some(TaskFilter::Completed),
         }
     }
 
     fn all() -> &'static [SidebarSelection] {
-        &[Self::Inbox, Self::Today, Self::Scheduled, Self::Labels, Self::Completed]
+        &[
+            Self::Inbox,
+            Self::Today,
+            Self::Scheduled,
+            Self::Labels,
+            Self::Filters,
+            Self::Completed,
+        ]
     }
 }
 
@@ -97,13 +108,16 @@ impl SimpleComponent for Sidebar {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let cards_grid = gtk::Grid::new();
-        cards_grid.set_row_spacing(8);
-        cards_grid.set_column_spacing(8);
-        cards_grid.set_column_homogeneous(true);
-        cards_grid.set_halign(gtk::Align::Fill);
-        cards_grid.set_valign(gtk::Align::Start);
-        cards_grid.set_hexpand(true);
+        let cards_flow = gtk::FlowBox::new();
+        cards_flow.set_row_spacing(8);
+        cards_flow.set_column_spacing(8);
+        cards_flow.set_homogeneous(true);
+        cards_flow.set_selection_mode(gtk::SelectionMode::None);
+        cards_flow.set_min_children_per_line(2);
+        cards_flow.set_max_children_per_line(3);
+        cards_flow.set_halign(gtk::Align::Fill);
+        cards_flow.set_valign(gtk::Align::Start);
+        cards_flow.set_hexpand(true);
 
         let entries_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
         entries_box.set_margin_start(12);
@@ -112,21 +126,18 @@ impl SimpleComponent for Sidebar {
         entries_box.set_margin_bottom(12);
         entries_box.set_valign(gtk::Align::Start);
         entries_box.add_css_class("sidebar-list");
-        entries_box.append(&cards_grid);
+        entries_box.append(&cards_flow);
 
         let buttons: Vec<_> = SidebarSelection::all()
             .iter()
             .copied()
-            .enumerate()
-            .map(|(idx, entry)| {
+            .map(|entry| {
                 let button = build_entry_button(entry);
                 let sender_clone = sender.clone();
                 button.connect_clicked(move |_| {
                     sender_clone.input(SidebarInput::Select(entry));
                 });
-                let col = (idx % 2) as i32;
-                let row = (idx / 2) as i32;
-                cards_grid.attach(&button, col, row, 1, 1);
+                cards_flow.insert(&button, -1);
                 (entry, button)
             })
             .collect();
