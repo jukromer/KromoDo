@@ -1,9 +1,11 @@
 use adw::prelude::*;
 use kromodo_core::AppState;
 use relm4::gtk::gdk;
+use relm4::gtk::glib;
 use relm4::prelude::*;
 use relm4::{adw, gtk};
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::components::quick_add::{QuickAdd, QuickAddInput, QuickAddOutput};
 use crate::components::sidebar::{Sidebar, SidebarOutput, SidebarSelection};
@@ -13,6 +15,7 @@ use kromodo_core::{CoreEvent, Priority, Task};
 pub struct App {
     state: Arc<AppState>,
     tasks: FactoryVecDeque<TaskRow>,
+    completed_tasks: FactoryVecDeque<TaskRow>,
     quick_add: Controller<QuickAdd>,
     sidebar: Controller<Sidebar>,
     selection: SidebarSelection,
@@ -31,6 +34,7 @@ pub enum AppMsg {
     SelectView(SidebarSelection),
     ToggleSidebar,
     CoreEvent(CoreEvent),
+    FinalizeMove { task: Task, to_done: bool },
 }
 
 #[relm4::component(pub)]
@@ -130,6 +134,17 @@ impl SimpleComponent for App {
                                             },
                                         },
                                     },
+
+                                    #[local_ref]
+                                    completed_task_list_box -> gtk::ListBox {
+                                        add_css_class: "task-list",
+                                        add_css_class: "task-list-completed",
+                                        set_selection_mode: gtk::SelectionMode::None,
+                                        set_margin_top: 8,
+                                        #[watch]
+                                        set_visible: matches!(model.selection, SidebarSelection::Inbox)
+                                            && model.completed_tasks.len() > 0,
+                                    },
                                 },
                             },
                         },
@@ -193,14 +208,28 @@ impl SimpleComponent for App {
                 TaskRowOutput::Deleted(id) => AppMsg::DeleteTask(id),
             });
 
+        let mut completed_tasks = FactoryVecDeque::builder()
+            .launch(gtk::ListBox::default())
+            .forward(sender.input_sender(), |output| match output {
+                TaskRowOutput::Toggled(id) => AppMsg::ToggleTask(id),
+                TaskRowOutput::Updated(task) => AppMsg::UpdateTask(task),
+                TaskRowOutput::Duplicated(id) => AppMsg::DuplicateTask(id),
+                TaskRowOutput::Deleted(id) => AppMsg::DeleteTask(id),
+            });
+
         let initial_filter = SidebarSelection::Inbox
             .task_filter()
             .expect("Inbox selection must have a filter");
         match state.list_tasks_for_filter(initial_filter) {
             Ok(initial_tasks) => {
-                let mut guard = tasks.guard();
+                let mut open_guard = tasks.guard();
+                let mut done_guard = completed_tasks.guard();
                 for task in initial_tasks {
-                    guard.push_back(task);
+                    if task.is_done {
+                        done_guard.push_back(task);
+                    } else {
+                        open_guard.push_back(task);
+                    }
                 }
             }
             Err(err) => eprintln!("kromodo: failed to load tasks: {err}"),
@@ -219,6 +248,7 @@ impl SimpleComponent for App {
         let model = App {
             state,
             tasks,
+            completed_tasks,
             quick_add,
             sidebar,
             selection: SidebarSelection::Inbox,
@@ -226,6 +256,7 @@ impl SimpleComponent for App {
         };
 
         let task_list_box = model.tasks.widget();
+        let completed_task_list_box = model.completed_tasks.widget();
         let widgets = view_output!();
 
         ComponentParts { model, widgets }
@@ -271,10 +302,17 @@ impl SimpleComponent for App {
                 };
                 match result {
                     Ok(updated_tasks) => {
-                        let mut guard = self.tasks.guard();
-                        guard.clear();
+                        let split_done = matches!(self.selection, SidebarSelection::Inbox);
+                        let mut open_guard = self.tasks.guard();
+                        let mut done_guard = self.completed_tasks.guard();
+                        open_guard.clear();
+                        done_guard.clear();
                         for task in updated_tasks {
-                            guard.push_back(task);
+                            if split_done && task.is_done {
+                                done_guard.push_back(task);
+                            } else {
+                                open_guard.push_back(task);
+                            }
                         }
                     }
                     Err(err) => eprintln!("kromodo: list_tasks failed: {err}"),
@@ -292,13 +330,55 @@ impl SimpleComponent for App {
                     self.tasks.guard().push_front(task);
                 }
                 CoreEvent::TaskUpdated(task) => {
-                    let guard = self.tasks.guard();
-                    let index = (0..guard.len()).find(|&i| {
-                        guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false)
+                    let in_inbox = matches!(self.selection, SidebarSelection::Inbox);
+
+                    let open_guard = self.tasks.guard();
+                    let open_index = (0..open_guard.len()).find(|&i| {
+                        open_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false)
                     });
-                    drop(guard);
-                    if let Some(i) = index {
-                        self.tasks.send(i, TaskRowInput::ReplaceTask(task));
+                    drop(open_guard);
+
+                    let done_guard = self.completed_tasks.guard();
+                    let done_index = (0..done_guard.len()).find(|&i| {
+                        done_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false)
+                    });
+                    drop(done_guard);
+
+                    if let Some(i) = open_index {
+                        if task.is_done && in_inbox {
+                            self.tasks.send(i, TaskRowInput::SetRevealed(false));
+                            let s = sender.clone();
+                            let t = task.clone();
+                            glib::timeout_add_local_once(
+                                Duration::from_millis(240),
+                                move || {
+                                    s.input(AppMsg::FinalizeMove {
+                                        task: t,
+                                        to_done: true,
+                                    });
+                                },
+                            );
+                        } else {
+                            self.tasks.send(i, TaskRowInput::ReplaceTask(task));
+                        }
+                    } else if let Some(i) = done_index {
+                        if !task.is_done && in_inbox {
+                            self.completed_tasks
+                                .send(i, TaskRowInput::SetRevealed(false));
+                            let s = sender.clone();
+                            let t = task.clone();
+                            glib::timeout_add_local_once(
+                                Duration::from_millis(240),
+                                move || {
+                                    s.input(AppMsg::FinalizeMove {
+                                        task: t,
+                                        to_done: false,
+                                    });
+                                },
+                            );
+                        } else {
+                            self.completed_tasks.send(i, TaskRowInput::ReplaceTask(task));
+                        }
                     }
                 }
                 CoreEvent::TaskDeleted(id) => {
@@ -308,8 +388,39 @@ impl SimpleComponent for App {
                     if let Some(i) = index {
                         guard.remove(i);
                     }
+                    drop(guard);
+
+                    let mut done_guard = self.completed_tasks.guard();
+                    let done_index = (0..done_guard.len())
+                        .find(|&i| done_guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
+                    if let Some(i) = done_index {
+                        done_guard.remove(i);
+                    }
                 }
             },
+            AppMsg::FinalizeMove { task, to_done } => {
+                if to_done {
+                    let open_guard = self.tasks.guard();
+                    let idx = (0..open_guard.len()).find(|&i| {
+                        open_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false)
+                    });
+                    drop(open_guard);
+                    if let Some(i) = idx {
+                        self.tasks.guard().remove(i);
+                        self.completed_tasks.guard().push_front(task);
+                    }
+                } else {
+                    let done_guard = self.completed_tasks.guard();
+                    let idx = (0..done_guard.len()).find(|&i| {
+                        done_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false)
+                    });
+                    drop(done_guard);
+                    if let Some(i) = idx {
+                        self.completed_tasks.guard().remove(i);
+                        self.tasks.guard().push_front(task);
+                    }
+                }
+            }
         }
     }
 }

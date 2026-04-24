@@ -13,6 +13,7 @@ use context_menu::show_context_popover;
 pub struct TaskRow {
     task: Task,
     expanded: bool,
+    revealed: bool,
     // Mirrors task.is_done so connect_toggled can distinguish user clicks from programmatic set_active calls
     is_done_mirror: Rc<Cell<bool>>,
     title_buffer: gtk::EntryBuffer,
@@ -32,6 +33,7 @@ pub enum TaskRowInput {
     Duplicate,
     Delete,
     ReplaceTask(Task),
+    SetRevealed(bool),
 }
 
 #[derive(Debug)]
@@ -154,22 +156,30 @@ impl FactoryComponent for TaskRow {
     type ParentWidget = gtk::ListBox;
 
     view! {
-        gtk::Box {
-            set_orientation: gtk::Orientation::Vertical,
+        gtk::Revealer {
             #[watch]
-            set_css_classes: self.card_classes(),
+            set_reveal_child: self.revealed,
+            set_transition_type: gtk::RevealerTransitionType::SlideDown,
+            set_transition_duration: 220,
 
-            gtk::Box {
-                set_orientation: gtk::Orientation::Horizontal,
-                set_spacing: 10,
+            #[wrap(Some)]
+            set_child = &gtk::Box {
+                set_orientation: gtk::Orientation::Vertical,
                 #[watch]
-                set_css_classes: &compact_row_classes(&self.task),
+                set_css_classes: self.card_classes(),
 
-                gtk::CheckButton {
-                    set_valign: gtk::Align::Center,
+                gtk::Box {
+                    set_orientation: gtk::Orientation::Horizontal,
+                    set_spacing: 10,
                     #[watch]
-                    set_active: self.task.is_done,
-                },
+                    set_css_classes: &compact_row_classes(&self.task),
+
+                    #[name = "check_btn"]
+                    gtk::CheckButton {
+                        set_valign: gtk::Align::Center,
+                        #[watch]
+                        set_active: self.task.is_done,
+                    },
 
                 gtk::Button {
                     #[watch]
@@ -328,7 +338,8 @@ impl FactoryComponent for TaskRow {
                     },
                 },
             },
-        }
+        },
+    }
     }
 
     fn init_model(
@@ -344,6 +355,7 @@ impl FactoryComponent for TaskRow {
         Self {
             task,
             expanded: false,
+            revealed: false,
             is_done_mirror,
             title_buffer,
             description_buffer,
@@ -362,7 +374,7 @@ impl FactoryComponent for TaskRow {
         // connect_toggled with guard: only fires when user actually clicks, not on programmatic set_active
         let mirror = self.is_done_mirror.clone();
         let s = sender.clone();
-        widgets.gtk_checkbutton_47.connect_toggled(move |cb| {
+        widgets.check_btn.connect_toggled(move |cb| {
             if cb.is_active() != mirror.get() {
                 s.input(TaskRowInput::Toggle);
             }
@@ -378,6 +390,12 @@ impl FactoryComponent for TaskRow {
         root.add_controller(gesture);
 
         attach_date_picker(&widgets.date_chip, self.task.due_date, &sender);
+
+        // Trigger reveal animation once the widget is mounted
+        let s = sender.clone();
+        glib::idle_add_local_once(move || {
+            s.input(TaskRowInput::SetRevealed(true));
+        });
 
         widgets
     }
@@ -464,6 +482,9 @@ impl FactoryComponent for TaskRow {
             TaskRowInput::ReplaceTask(task) => {
                 self.task = task;
                 self.is_done_mirror.set(self.task.is_done);
+            }
+            TaskRowInput::SetRevealed(value) => {
+                self.revealed = value;
             }
         }
     }
