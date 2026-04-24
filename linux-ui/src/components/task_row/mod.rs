@@ -110,6 +110,14 @@ impl TaskRow {
         classes
     }
 
+    fn due_label_classes(&self) -> &'static [&'static str] {
+        if self.task.is_overdue(Utc::now()) {
+            &["caption", "task-due-label", "task-due-overdue"]
+        } else {
+            &["caption", "dim-label", "task-due-label"]
+        }
+    }
+
     fn sync_buffers_from_task(&self) {
         self.title_buffer.set_text(&self.task.title);
         self.description_buffer.set_text(&self.task.description);
@@ -196,7 +204,8 @@ impl FactoryComponent for TaskRow {
                     set_visible: !self.expanded && self.task.due_date.is_some(),
                     #[watch]
                     set_label: &format_due_display(self.task.due_date).unwrap_or_default(),
-                    set_css_classes: &["caption", "dim-label", "task-due-label"],
+                    #[watch]
+                    set_css_classes: self.due_label_classes(),
                     set_valign: gtk::Align::Center,
                     set_margin_end: 4,
                 },

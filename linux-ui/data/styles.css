@@ -295,6 +295,11 @@ window.kromodo-dark headerbar {
     font-size: 0.82em;
 }
 
+.task-due-overdue {
+    color: #e01b24;
+    font-weight: 600;
+}
+
 .priority-dot {
     min-width: 24px;
     min-height: 24px;
