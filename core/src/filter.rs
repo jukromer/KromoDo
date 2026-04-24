@@ -1,11 +1,30 @@
 use chrono::{DateTime, Local, TimeZone, Utc};
 
+use crate::models::task::Task;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TaskFilter {
     Inbox,
     Today,
     Upcoming,
     Completed,
+}
+
+impl TaskFilter {
+    pub fn matches(&self, task: &Task) -> bool {
+        match self {
+            Self::Inbox => true,
+            Self::Today => {
+                !task.is_done
+                    && task.due_date.map_or(false, |d| d < today_range().1)
+            }
+            Self::Upcoming => {
+                !task.is_done
+                    && task.due_date.map_or(false, |d| d >= today_range().1)
+            }
+            Self::Completed => task.is_done,
+        }
+    }
 }
 
 pub(crate) fn today_range() -> (DateTime<Utc>, DateTime<Utc>) {

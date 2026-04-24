@@ -327,7 +327,13 @@ impl SimpleComponent for App {
             }
             AppMsg::CoreEvent(event) => match event {
                 CoreEvent::TaskCreated(task) => {
-                    self.tasks.guard().push_front(task);
+                    let in_view = self
+                        .selection
+                        .task_filter()
+                        .map_or(false, |f| f.matches(&task));
+                    if in_view {
+                        self.tasks.guard().push_front(task);
+                    }
                 }
                 CoreEvent::TaskUpdated(task) => {
                     let in_inbox = matches!(self.selection, SidebarSelection::Inbox);
