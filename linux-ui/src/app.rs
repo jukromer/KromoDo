@@ -35,6 +35,7 @@ pub enum AppMsg {
     ToggleSidebar,
     CoreEvent(CoreEvent),
     FinalizeMove { task: Task, to_done: bool },
+    FinalizeRemove { id: i64 },
 }
 
 #[relm4::component(pub)]
@@ -356,10 +357,20 @@ impl SimpleComponent for App {
 
                     if !still_matches {
                         if let Some(i) = open_index {
-                            self.tasks.guard().remove(i);
+                            self.tasks.send(i, TaskRowInput::SetRevealed(false));
                         }
                         if let Some(i) = done_index {
-                            self.completed_tasks.guard().remove(i);
+                            self.completed_tasks.send(i, TaskRowInput::SetRevealed(false));
+                        }
+                        if open_index.is_some() || done_index.is_some() {
+                            let s = sender.clone();
+                            let id = task.id;
+                            glib::timeout_add_local_once(
+                                Duration::from_millis(240),
+                                move || {
+                                    s.input(AppMsg::FinalizeRemove { id });
+                                },
+                            );
                         }
                     } else if in_inbox {
                         if let Some(i) = open_index {
@@ -425,6 +436,23 @@ impl SimpleComponent for App {
                     }
                 }
             },
+            AppMsg::FinalizeRemove { id } => {
+                let open_guard = self.tasks.guard();
+                let idx = (0..open_guard.len())
+                    .find(|&i| open_guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
+                drop(open_guard);
+                if let Some(i) = idx {
+                    self.tasks.guard().remove(i);
+                }
+
+                let done_guard = self.completed_tasks.guard();
+                let idx = (0..done_guard.len())
+                    .find(|&i| done_guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
+                drop(done_guard);
+                if let Some(i) = idx {
+                    self.completed_tasks.guard().remove(i);
+                }
+            }
             AppMsg::FinalizeMove { task, to_done } => {
                 if to_done {
                     let open_guard = self.tasks.guard();
