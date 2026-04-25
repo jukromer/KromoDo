@@ -336,6 +336,10 @@ impl SimpleComponent for App {
                     }
                 }
                 CoreEvent::TaskUpdated(task) => {
+                    let still_matches = self
+                        .selection
+                        .task_filter()
+                        .map_or(false, |f| f.matches(&task));
                     let in_inbox = matches!(self.selection, SidebarSelection::Inbox);
 
                     let open_guard = self.tasks.guard();
@@ -350,41 +354,58 @@ impl SimpleComponent for App {
                     });
                     drop(done_guard);
 
-                    if let Some(i) = open_index {
-                        if task.is_done && in_inbox {
-                            self.tasks.send(i, TaskRowInput::SetRevealed(false));
-                            let s = sender.clone();
-                            let t = task.clone();
-                            glib::timeout_add_local_once(
-                                Duration::from_millis(240),
-                                move || {
-                                    s.input(AppMsg::FinalizeMove {
-                                        task: t,
-                                        to_done: true,
-                                    });
-                                },
-                            );
-                        } else {
-                            self.tasks.send(i, TaskRowInput::ReplaceTask(task));
+                    if !still_matches {
+                        if let Some(i) = open_index {
+                            self.tasks.guard().remove(i);
                         }
-                    } else if let Some(i) = done_index {
-                        if !task.is_done && in_inbox {
-                            self.completed_tasks
-                                .send(i, TaskRowInput::SetRevealed(false));
-                            let s = sender.clone();
-                            let t = task.clone();
-                            glib::timeout_add_local_once(
-                                Duration::from_millis(240),
-                                move || {
-                                    s.input(AppMsg::FinalizeMove {
-                                        task: t,
-                                        to_done: false,
-                                    });
-                                },
-                            );
-                        } else {
-                            self.completed_tasks.send(i, TaskRowInput::ReplaceTask(task));
+                        if let Some(i) = done_index {
+                            self.completed_tasks.guard().remove(i);
                         }
+                    } else if in_inbox {
+                        if let Some(i) = open_index {
+                            if task.is_done {
+                                self.tasks.send(i, TaskRowInput::SetRevealed(false));
+                                let s = sender.clone();
+                                let t = task.clone();
+                                glib::timeout_add_local_once(
+                                    Duration::from_millis(240),
+                                    move || {
+                                        s.input(AppMsg::FinalizeMove {
+                                            task: t,
+                                            to_done: true,
+                                        });
+                                    },
+                                );
+                            } else {
+                                self.tasks.send(i, TaskRowInput::ReplaceTask(task));
+                            }
+                        } else if let Some(i) = done_index {
+                            if !task.is_done {
+                                self.completed_tasks
+                                    .send(i, TaskRowInput::SetRevealed(false));
+                                let s = sender.clone();
+                                let t = task.clone();
+                                glib::timeout_add_local_once(
+                                    Duration::from_millis(240),
+                                    move || {
+                                        s.input(AppMsg::FinalizeMove {
+                                            task: t,
+                                            to_done: false,
+                                        });
+                                    },
+                                );
+                            } else {
+                                self.completed_tasks.send(i, TaskRowInput::ReplaceTask(task));
+                            }
+                        } else if task.is_done {
+                            self.completed_tasks.guard().push_front(task);
+                        } else {
+                            self.tasks.guard().push_front(task);
+                        }
+                    } else if let Some(i) = open_index {
+                        self.tasks.send(i, TaskRowInput::ReplaceTask(task));
+                    } else {
+                        self.tasks.guard().push_front(task);
                     }
                 }
                 CoreEvent::TaskDeleted(id) => {
