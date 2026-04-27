@@ -1,5 +1,5 @@
-use chrono::{Datelike, Duration, Local, NaiveDate, TimeZone, Utc};
-use kromodo_core::{due_bucket, DueBucket, Priority, Task};
+use chrono::{Duration, Local, NaiveDate, TimeZone, Utc};
+use kromodo_core::{Priority, Task};
 use relm4::gtk;
 use relm4::gtk::glib;
 use relm4::gtk::prelude::*;
@@ -8,7 +8,12 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 mod context_menu;
+mod date_picker;
+mod styling;
+
 use context_menu::show_context_popover;
+use date_picker::attach_date_picker;
+use styling::{compact_row_classes, format_due_display};
 
 pub struct TaskRow {
     task: Task,
@@ -44,80 +49,9 @@ pub enum TaskRowOutput {
     Deleted(i64),
 }
 
-fn format_due_display(due: Option<chrono::DateTime<Utc>>) -> Option<String> {
-    let dt = due?;
-    Some(match due_bucket(dt, Utc::now()) {
-        DueBucket::Today => "Today".to_string(),
-        DueBucket::Tomorrow => "Tomorrow".to_string(),
-        DueBucket::Yesterday => "Yesterday".to_string(),
-        DueBucket::Other => dt
-            .with_timezone(&Local)
-            .date_naive()
-            .format("%a, %-d %b")
-            .to_string(),
-    })
-}
-
-fn priority_class(priority: Priority) -> &'static str {
-    match priority {
-        Priority::Low => "priority-low",
-        Priority::Medium => "priority-medium",
-        Priority::High => "priority-high",
-        Priority::Urgent => "priority-urgent",
-        Priority::None => "priority-none",
-    }
-}
-
-fn compact_row_classes(task: &Task) -> Vec<&'static str> {
-    let mut classes = vec!["task-row", priority_class(task.priority)];
-    if task.is_done {
-        classes.push("task-done");
-    }
-    classes
-}
-
 impl TaskRow {
     pub fn task_id(&self) -> i64 {
         self.task.id
-    }
-
-    fn formatted_title(&self) -> String {
-        if self.task.is_done {
-            format!("<s>{}</s>", glib::markup_escape_text(&self.task.title))
-        } else {
-            glib::markup_escape_text(&self.task.title).to_string()
-        }
-    }
-
-    fn card_classes(&self) -> &'static [&'static str] {
-        if self.expanded {
-            &["task-edit-card"]
-        } else {
-            &[]
-        }
-    }
-
-    fn priority_dot_classes(&self, level: Priority) -> Vec<&'static str> {
-        let mut classes = vec!["priority-dot"];
-        classes.push(match level {
-            Priority::Low => "priority-dot-low",
-            Priority::Medium => "priority-dot-medium",
-            Priority::High => "priority-dot-high",
-            Priority::Urgent => "priority-dot-urgent",
-            Priority::None => "",
-        });
-        if self.task.priority == level {
-            classes.push("priority-dot-active");
-        }
-        classes
-    }
-
-    fn due_label_classes(&self) -> &'static [&'static str] {
-        if self.task.is_overdue(Utc::now()) {
-            &["caption", "task-due-label", "task-due-overdue"]
-        } else {
-            &["caption", "dim-label", "task-due-label"]
-        }
     }
 
     fn sync_buffers_from_task(&self) {
@@ -490,72 +424,3 @@ impl FactoryComponent for TaskRow {
     }
 }
 
-fn attach_date_picker(
-    menu_button: &gtk::MenuButton,
-    initial: Option<chrono::DateTime<Utc>>,
-    sender: &FactorySender<TaskRow>,
-) {
-    let calendar = gtk::Calendar::new();
-    if let Some(due) = initial {
-        let local = due.with_timezone(&Local);
-        if let Ok(dt) = glib::DateTime::from_local(
-            local.year(),
-            local.month() as i32,
-            local.day() as i32,
-            0,
-            0,
-            0.0,
-        ) {
-            calendar.select_day(&dt);
-        }
-    }
-
-    let clear_btn = gtk::Button::with_label("Clear");
-    clear_btn.add_css_class("flat");
-    let ok_btn = gtk::Button::with_label("OK");
-    ok_btn.add_css_class("suggested-action");
-
-    let btn_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    btn_box.set_halign(gtk::Align::End);
-    btn_box.append(&clear_btn);
-    btn_box.append(&ok_btn);
-
-    let popover_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
-    popover_box.set_margin_start(8);
-    popover_box.set_margin_end(8);
-    popover_box.set_margin_top(8);
-    popover_box.set_margin_bottom(8);
-    popover_box.append(&calendar);
-    popover_box.append(&btn_box);
-
-    let popover = gtk::Popover::new();
-    popover.add_css_class("date-picker-popover");
-    popover.set_child(Some(&popover_box));
-    menu_button.set_popover(Some(&popover));
-
-    let s = sender.clone();
-    let cal_weak = calendar.downgrade();
-    let popover_weak = popover.downgrade();
-    ok_btn.connect_clicked(move |_| {
-        let Some(cal) = cal_weak.upgrade() else {
-            return;
-        };
-        s.input(TaskRowInput::SetDueDate {
-            year: cal.year(),
-            month: (cal.month() + 1) as u32,
-            day: cal.day() as u32,
-        });
-        if let Some(p) = popover_weak.upgrade() {
-            p.popdown();
-        }
-    });
-
-    let s = sender.clone();
-    let popover_weak = popover.downgrade();
-    clear_btn.connect_clicked(move |_| {
-        s.input(TaskRowInput::ClearDueDate);
-        if let Some(p) = popover_weak.upgrade() {
-            p.popdown();
-        }
-    });
-}
