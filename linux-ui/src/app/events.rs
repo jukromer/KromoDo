@@ -2,8 +2,12 @@ use relm4::prelude::*;
 
 use super::{App, AppMsg};
 use crate::components::sidebar::SidebarSelection;
-use crate::components::task_row::TaskRowInput;
+use crate::components::task_row::{TaskRow, TaskRowInput};
 use kromodo_core::{CoreEvent, Task};
+
+fn task_index(factory: &FactoryVecDeque<TaskRow>, id: i64) -> Option<usize> {
+    factory.iter().position(|r| r.task_id() == id)
+}
 
 impl App {
     pub(super) fn handle_core_event(
@@ -24,19 +28,11 @@ impl App {
             CoreEvent::TaskUpdated(task) => self.handle_task_updated(task, sender),
             CoreEvent::TaskDeleted(id) => {
                 self.pending_finalize.remove(&id);
-                let mut guard = self.tasks.guard();
-                let index = (0..guard.len())
-                    .find(|&i| guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
-                if let Some(i) = index {
-                    guard.remove(i);
+                if let Some(i) = task_index(&self.tasks, id) {
+                    self.tasks.guard().remove(i);
                 }
-                drop(guard);
-
-                let mut done_guard = self.completed_tasks.guard();
-                let done_index = (0..done_guard.len())
-                    .find(|&i| done_guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
-                if let Some(i) = done_index {
-                    done_guard.remove(i);
+                if let Some(i) = task_index(&self.completed_tasks, id) {
+                    self.completed_tasks.guard().remove(i);
                 }
             }
         }
@@ -51,15 +47,8 @@ impl App {
             .map_or(false, |f| f.matches(&task));
         let in_inbox = matches!(self.selection, SidebarSelection::Inbox);
 
-        let open_guard = self.tasks.guard();
-        let open_index = (0..open_guard.len())
-            .find(|&i| open_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false));
-        drop(open_guard);
-
-        let done_guard = self.completed_tasks.guard();
-        let done_index = (0..done_guard.len())
-            .find(|&i| done_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false));
-        drop(done_guard);
+        let open_index = task_index(&self.tasks, task.id);
+        let done_index = task_index(&self.completed_tasks, task.id);
 
         if had_pending {
             if let Some(i) = open_index {
@@ -127,19 +116,10 @@ impl App {
         if !self.claim_finalize(id, token) {
             return;
         }
-        let open_guard = self.tasks.guard();
-        let idx = (0..open_guard.len())
-            .find(|&i| open_guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
-        drop(open_guard);
-        if let Some(i) = idx {
+        if let Some(i) = task_index(&self.tasks, id) {
             self.tasks.guard().remove(i);
         }
-
-        let done_guard = self.completed_tasks.guard();
-        let idx = (0..done_guard.len())
-            .find(|&i| done_guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
-        drop(done_guard);
-        if let Some(i) = idx {
+        if let Some(i) = task_index(&self.completed_tasks, id) {
             self.completed_tasks.guard().remove(i);
         }
     }
@@ -149,23 +129,13 @@ impl App {
             return;
         }
         if to_done {
-            let open_guard = self.tasks.guard();
-            let idx = (0..open_guard.len())
-                .find(|&i| open_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false));
-            drop(open_guard);
-            if let Some(i) = idx {
+            if let Some(i) = task_index(&self.tasks, task.id) {
                 self.tasks.guard().remove(i);
                 self.completed_tasks.guard().push_front(task);
             }
-        } else {
-            let done_guard = self.completed_tasks.guard();
-            let idx = (0..done_guard.len())
-                .find(|&i| done_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false));
-            drop(done_guard);
-            if let Some(i) = idx {
-                self.completed_tasks.guard().remove(i);
-                self.tasks.guard().push_front(task);
-            }
+        } else if let Some(i) = task_index(&self.completed_tasks, task.id) {
+            self.completed_tasks.guard().remove(i);
+            self.tasks.guard().push_front(task);
         }
     }
 }
