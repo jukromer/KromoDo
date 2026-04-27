@@ -4,6 +4,7 @@ use relm4::gtk::gdk;
 use relm4::gtk::glib;
 use relm4::prelude::*;
 use relm4::{adw, gtk};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -20,6 +21,8 @@ pub struct App {
     sidebar: Controller<Sidebar>,
     selection: SidebarSelection,
     show_sidebar: bool,
+    pending_finalize: HashMap<i64, u64>,
+    next_finalize_token: u64,
 }
 
 #[derive(Debug)]
@@ -34,8 +37,8 @@ pub enum AppMsg {
     SelectView(SidebarSelection),
     ToggleSidebar,
     CoreEvent(CoreEvent),
-    FinalizeMove { task: Task, to_done: bool },
-    FinalizeRemove { id: i64 },
+    FinalizeMove { task: Task, to_done: bool, token: u64 },
+    FinalizeRemove { id: i64, token: u64 },
 }
 
 #[relm4::component(pub)]
@@ -254,6 +257,8 @@ impl SimpleComponent for App {
             sidebar,
             selection: SidebarSelection::Inbox,
             show_sidebar: true,
+            pending_finalize: HashMap::new(),
+            next_finalize_token: 0,
         };
 
         let task_list_box = model.tasks.widget();
@@ -337,6 +342,8 @@ impl SimpleComponent for App {
                     }
                 }
                 CoreEvent::TaskUpdated(task) => {
+                    let had_pending = self.pending_finalize.remove(&task.id).is_some();
+
                     let still_matches = self
                         .selection
                         .task_filter()
@@ -355,6 +362,15 @@ impl SimpleComponent for App {
                     });
                     drop(done_guard);
 
+                    if had_pending {
+                        if let Some(i) = open_index {
+                            self.tasks.send(i, TaskRowInput::SetRevealed(true));
+                        }
+                        if let Some(i) = done_index {
+                            self.completed_tasks.send(i, TaskRowInput::SetRevealed(true));
+                        }
+                    }
+
                     if !still_matches {
                         if let Some(i) = open_index {
                             self.tasks.send(i, TaskRowInput::SetRevealed(false));
@@ -363,30 +379,24 @@ impl SimpleComponent for App {
                             self.completed_tasks.send(i, TaskRowInput::SetRevealed(false));
                         }
                         if open_index.is_some() || done_index.is_some() {
-                            let s = sender.clone();
                             let id = task.id;
-                            glib::timeout_add_local_once(
-                                Duration::from_millis(240),
-                                move || {
-                                    s.input(AppMsg::FinalizeRemove { id });
-                                },
-                            );
+                            self.schedule_finalize(id, &sender, move |token| {
+                                AppMsg::FinalizeRemove { id, token }
+                            });
                         }
                     } else if in_inbox {
                         if let Some(i) = open_index {
                             if task.is_done {
                                 self.tasks.send(i, TaskRowInput::SetRevealed(false));
-                                let s = sender.clone();
+                                let id = task.id;
                                 let t = task.clone();
-                                glib::timeout_add_local_once(
-                                    Duration::from_millis(240),
-                                    move || {
-                                        s.input(AppMsg::FinalizeMove {
-                                            task: t,
-                                            to_done: true,
-                                        });
-                                    },
-                                );
+                                self.schedule_finalize(id, &sender, move |token| {
+                                    AppMsg::FinalizeMove {
+                                        task: t,
+                                        to_done: true,
+                                        token,
+                                    }
+                                });
                             } else {
                                 self.tasks.send(i, TaskRowInput::ReplaceTask(task));
                             }
@@ -394,17 +404,15 @@ impl SimpleComponent for App {
                             if !task.is_done {
                                 self.completed_tasks
                                     .send(i, TaskRowInput::SetRevealed(false));
-                                let s = sender.clone();
+                                let id = task.id;
                                 let t = task.clone();
-                                glib::timeout_add_local_once(
-                                    Duration::from_millis(240),
-                                    move || {
-                                        s.input(AppMsg::FinalizeMove {
-                                            task: t,
-                                            to_done: false,
-                                        });
-                                    },
-                                );
+                                self.schedule_finalize(id, &sender, move |token| {
+                                    AppMsg::FinalizeMove {
+                                        task: t,
+                                        to_done: false,
+                                        token,
+                                    }
+                                });
                             } else {
                                 self.completed_tasks.send(i, TaskRowInput::ReplaceTask(task));
                             }
@@ -420,6 +428,7 @@ impl SimpleComponent for App {
                     }
                 }
                 CoreEvent::TaskDeleted(id) => {
+                    self.pending_finalize.remove(&id);
                     let mut guard = self.tasks.guard();
                     let index = (0..guard.len())
                         .find(|&i| guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
@@ -436,7 +445,10 @@ impl SimpleComponent for App {
                     }
                 }
             },
-            AppMsg::FinalizeRemove { id } => {
+            AppMsg::FinalizeRemove { id, token } => {
+                if !self.claim_finalize(id, token) {
+                    return;
+                }
                 let open_guard = self.tasks.guard();
                 let idx = (0..open_guard.len())
                     .find(|&i| open_guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
@@ -453,7 +465,10 @@ impl SimpleComponent for App {
                     self.completed_tasks.guard().remove(i);
                 }
             }
-            AppMsg::FinalizeMove { task, to_done } => {
+            AppMsg::FinalizeMove { task, to_done, token } => {
+                if !self.claim_finalize(task.id, token) {
+                    return;
+                }
                 if to_done {
                     let open_guard = self.tasks.guard();
                     let idx = (0..open_guard.len()).find(|&i| {
@@ -476,6 +491,34 @@ impl SimpleComponent for App {
                     }
                 }
             }
+        }
+    }
+}
+
+impl App {
+    fn schedule_finalize(
+        &mut self,
+        id: i64,
+        sender: &ComponentSender<Self>,
+        make_msg: impl FnOnce(u64) -> AppMsg + 'static,
+    ) {
+        let token = self.next_finalize_token;
+        self.next_finalize_token = self.next_finalize_token.wrapping_add(1);
+        self.pending_finalize.insert(id, token);
+        let msg = make_msg(token);
+        let s = sender.clone();
+        glib::timeout_add_local_once(Duration::from_millis(240), move || {
+            s.input(msg);
+        });
+    }
+
+    fn claim_finalize(&mut self, id: i64, token: u64) -> bool {
+        match self.pending_finalize.get(&id) {
+            Some(&t) if t == token => {
+                self.pending_finalize.remove(&id);
+                true
+            }
+            _ => false,
         }
     }
 }
