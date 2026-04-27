@@ -1,17 +1,20 @@
 use adw::prelude::*;
 use kromodo_core::AppState;
-use relm4::gtk::gdk;
-use relm4::gtk::glib;
 use relm4::prelude::*;
 use relm4::{adw, gtk};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::components::quick_add::{QuickAdd, QuickAddInput, QuickAddOutput};
 use crate::components::sidebar::{Sidebar, SidebarOutput, SidebarSelection};
-use crate::components::task_row::{TaskRow, TaskRowInput, TaskRowOutput};
+use crate::components::task_row::{TaskRow, TaskRowOutput};
 use kromodo_core::{CoreEvent, Priority, Task};
+
+mod events;
+mod finalize;
+mod theme;
+
+use theme::{apply_dark_class, load_css};
 
 pub struct App {
     state: Arc<AppState>,
@@ -331,212 +334,11 @@ impl SimpleComponent for App {
             AppMsg::ToggleSidebar => {
                 self.show_sidebar = !self.show_sidebar;
             }
-            AppMsg::CoreEvent(event) => match event {
-                CoreEvent::TaskCreated(task) => {
-                    let in_view = self
-                        .selection
-                        .task_filter()
-                        .map_or(false, |f| f.matches(&task));
-                    if in_view {
-                        self.tasks.guard().push_front(task);
-                    }
-                }
-                CoreEvent::TaskUpdated(task) => {
-                    let had_pending = self.pending_finalize.remove(&task.id).is_some();
-
-                    let still_matches = self
-                        .selection
-                        .task_filter()
-                        .map_or(false, |f| f.matches(&task));
-                    let in_inbox = matches!(self.selection, SidebarSelection::Inbox);
-
-                    let open_guard = self.tasks.guard();
-                    let open_index = (0..open_guard.len()).find(|&i| {
-                        open_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false)
-                    });
-                    drop(open_guard);
-
-                    let done_guard = self.completed_tasks.guard();
-                    let done_index = (0..done_guard.len()).find(|&i| {
-                        done_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false)
-                    });
-                    drop(done_guard);
-
-                    if had_pending {
-                        if let Some(i) = open_index {
-                            self.tasks.send(i, TaskRowInput::SetRevealed(true));
-                        }
-                        if let Some(i) = done_index {
-                            self.completed_tasks.send(i, TaskRowInput::SetRevealed(true));
-                        }
-                    }
-
-                    if !still_matches {
-                        if let Some(i) = open_index {
-                            self.tasks.send(i, TaskRowInput::SetRevealed(false));
-                        }
-                        if let Some(i) = done_index {
-                            self.completed_tasks.send(i, TaskRowInput::SetRevealed(false));
-                        }
-                        if open_index.is_some() || done_index.is_some() {
-                            let id = task.id;
-                            self.schedule_finalize(id, &sender, move |token| {
-                                AppMsg::FinalizeRemove { id, token }
-                            });
-                        }
-                    } else if in_inbox {
-                        if let Some(i) = open_index {
-                            if task.is_done {
-                                self.tasks.send(i, TaskRowInput::SetRevealed(false));
-                                let id = task.id;
-                                let t = task.clone();
-                                self.schedule_finalize(id, &sender, move |token| {
-                                    AppMsg::FinalizeMove {
-                                        task: t,
-                                        to_done: true,
-                                        token,
-                                    }
-                                });
-                            } else {
-                                self.tasks.send(i, TaskRowInput::ReplaceTask(task));
-                            }
-                        } else if let Some(i) = done_index {
-                            if !task.is_done {
-                                self.completed_tasks
-                                    .send(i, TaskRowInput::SetRevealed(false));
-                                let id = task.id;
-                                let t = task.clone();
-                                self.schedule_finalize(id, &sender, move |token| {
-                                    AppMsg::FinalizeMove {
-                                        task: t,
-                                        to_done: false,
-                                        token,
-                                    }
-                                });
-                            } else {
-                                self.completed_tasks.send(i, TaskRowInput::ReplaceTask(task));
-                            }
-                        } else if task.is_done {
-                            self.completed_tasks.guard().push_front(task);
-                        } else {
-                            self.tasks.guard().push_front(task);
-                        }
-                    } else if let Some(i) = open_index {
-                        self.tasks.send(i, TaskRowInput::ReplaceTask(task));
-                    } else {
-                        self.tasks.guard().push_front(task);
-                    }
-                }
-                CoreEvent::TaskDeleted(id) => {
-                    self.pending_finalize.remove(&id);
-                    let mut guard = self.tasks.guard();
-                    let index = (0..guard.len())
-                        .find(|&i| guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
-                    if let Some(i) = index {
-                        guard.remove(i);
-                    }
-                    drop(guard);
-
-                    let mut done_guard = self.completed_tasks.guard();
-                    let done_index = (0..done_guard.len())
-                        .find(|&i| done_guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
-                    if let Some(i) = done_index {
-                        done_guard.remove(i);
-                    }
-                }
-            },
-            AppMsg::FinalizeRemove { id, token } => {
-                if !self.claim_finalize(id, token) {
-                    return;
-                }
-                let open_guard = self.tasks.guard();
-                let idx = (0..open_guard.len())
-                    .find(|&i| open_guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
-                drop(open_guard);
-                if let Some(i) = idx {
-                    self.tasks.guard().remove(i);
-                }
-
-                let done_guard = self.completed_tasks.guard();
-                let idx = (0..done_guard.len())
-                    .find(|&i| done_guard.get(i).map(|r| r.task_id() == id).unwrap_or(false));
-                drop(done_guard);
-                if let Some(i) = idx {
-                    self.completed_tasks.guard().remove(i);
-                }
-            }
+            AppMsg::CoreEvent(event) => self.handle_core_event(event, &sender),
+            AppMsg::FinalizeRemove { id, token } => self.handle_finalize_remove(id, token),
             AppMsg::FinalizeMove { task, to_done, token } => {
-                if !self.claim_finalize(task.id, token) {
-                    return;
-                }
-                if to_done {
-                    let open_guard = self.tasks.guard();
-                    let idx = (0..open_guard.len()).find(|&i| {
-                        open_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false)
-                    });
-                    drop(open_guard);
-                    if let Some(i) = idx {
-                        self.tasks.guard().remove(i);
-                        self.completed_tasks.guard().push_front(task);
-                    }
-                } else {
-                    let done_guard = self.completed_tasks.guard();
-                    let idx = (0..done_guard.len()).find(|&i| {
-                        done_guard.get(i).map(|r| r.task_id() == task.id).unwrap_or(false)
-                    });
-                    drop(done_guard);
-                    if let Some(i) = idx {
-                        self.completed_tasks.guard().remove(i);
-                        self.tasks.guard().push_front(task);
-                    }
-                }
+                self.handle_finalize_move(task, to_done, token)
             }
         }
     }
-}
-
-impl App {
-    fn schedule_finalize(
-        &mut self,
-        id: i64,
-        sender: &ComponentSender<Self>,
-        make_msg: impl FnOnce(u64) -> AppMsg + 'static,
-    ) {
-        let token = self.next_finalize_token;
-        self.next_finalize_token = self.next_finalize_token.wrapping_add(1);
-        self.pending_finalize.insert(id, token);
-        let msg = make_msg(token);
-        let s = sender.clone();
-        glib::timeout_add_local_once(Duration::from_millis(240), move || {
-            s.input(msg);
-        });
-    }
-
-    fn claim_finalize(&mut self, id: i64, token: u64) -> bool {
-        match self.pending_finalize.get(&id) {
-            Some(&t) if t == token => {
-                self.pending_finalize.remove(&id);
-                true
-            }
-            _ => false,
-        }
-    }
-}
-
-fn apply_dark_class(window: &adw::ApplicationWindow, is_dark: bool) {
-    if is_dark {
-        window.add_css_class("kromodo-dark");
-    } else {
-        window.remove_css_class("kromodo-dark");
-    }
-}
-
-fn load_css() {
-    let provider = gtk::CssProvider::new();
-    provider.load_from_string(include_str!("../data/styles.css"));
-    gtk::style_context_add_provider_for_display(
-        &gdk::Display::default().expect("Could not get default display"),
-        &provider,
-        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-    );
 }
