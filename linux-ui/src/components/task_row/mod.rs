@@ -19,6 +19,7 @@ pub struct TaskRow {
     task: Task,
     expanded: bool,
     revealed: bool,
+    show_description_field: bool,
     // Mirrors task.is_done so connect_toggled can distinguish user clicks from programmatic set_active calls
     is_done_mirror: Rc<Cell<bool>>,
     title_buffer: gtk::EntryBuffer,
@@ -39,6 +40,7 @@ pub enum TaskRowInput {
     Delete,
     ReplaceTask(Task),
     SetRevealed(bool),
+    ShowDescriptionField,
 }
 
 #[derive(Debug)]
@@ -178,6 +180,8 @@ impl FactoryComponent for TaskRow {
                     set_margin_bottom: 8,
 
                     gtk::TextView {
+                        #[watch]
+                        set_visible: self.show_description_field,
                         set_buffer: Some(&self.description_buffer),
                         set_wrap_mode: gtk::WrapMode::WordChar,
                         set_accepts_tab: false,
@@ -186,6 +190,29 @@ impl FactoryComponent for TaskRow {
                         set_left_margin: 8,
                         set_right_margin: 8,
                         add_css_class: "task-edit-description",
+                    },
+
+                    gtk::Button {
+                        #[watch]
+                        set_visible: !self.show_description_field,
+                        set_css_classes: &["flat", "task-add-description-btn"],
+                        set_halign: gtk::Align::Start,
+                        connect_clicked => TaskRowInput::ShowDescriptionField,
+
+                        #[wrap(Some)]
+                        set_child = &gtk::Box {
+                            set_orientation: gtk::Orientation::Horizontal,
+                            set_spacing: 6,
+                            gtk::Image {
+                                set_icon_name: Some("list-add-symbolic"),
+                                set_pixel_size: 12,
+                            },
+                            gtk::Label {
+                                set_label: "Add description",
+                                add_css_class: "caption",
+                                add_css_class: "dim-label",
+                            },
+                        },
                     },
 
                     gtk::Box {
@@ -285,11 +312,13 @@ impl FactoryComponent for TaskRow {
         let description_buffer = gtk::TextBuffer::new(None);
         description_buffer.set_text(&task.description);
         let is_done_mirror = Rc::new(Cell::new(task.is_done));
+        let show_description_field = !task.description.is_empty();
 
         Self {
             task,
             expanded: false,
             revealed: false,
+            show_description_field,
             is_done_mirror,
             title_buffer,
             description_buffer,
@@ -346,6 +375,7 @@ impl FactoryComponent for TaskRow {
                     sender.input(TaskRowInput::SaveAndCollapse);
                 } else {
                     self.sync_buffers_from_task();
+                    self.show_description_field = !self.task.description.is_empty();
                     self.expanded = true;
                 }
             }
@@ -416,9 +446,13 @@ impl FactoryComponent for TaskRow {
             TaskRowInput::ReplaceTask(task) => {
                 self.task = task;
                 self.is_done_mirror.set(self.task.is_done);
+                self.show_description_field = !self.task.description.is_empty();
             }
             TaskRowInput::SetRevealed(value) => {
                 self.revealed = value;
+            }
+            TaskRowInput::ShowDescriptionField => {
+                self.show_description_field = true;
             }
         }
     }
